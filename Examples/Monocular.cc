@@ -28,7 +28,7 @@ using namespace std;
 
 int main()
 {
-    const string &strSettingPath = "Setting.yaml";
+    const string &strSettingPath = "/home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/Setting.yaml";
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
     if(!fSettings.isOpened())
     {
@@ -52,7 +52,7 @@ int main()
 
     // Main loop
     cv::Mat im;
-    cv::VideoCapture capture(0);
+    cv::VideoCapture capture("/dev/video0");
 while(1)
     {
         // Read image from file
