@@ -52,7 +52,7 @@ int main()
 
     // Main loop
     cv::Mat im;
-    cv::VideoCapture capture("/dev/video0");
+    cv::VideoCapture capture("/dev/video2");
 while(1)
     {
         // Read image from file

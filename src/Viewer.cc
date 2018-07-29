@@ -19,6 +19,7 @@
 */
 
 #include "Viewer.h"
+#include "MapPoint.h"
 #include <pangolin/pangolin.h>
 
 #include <mutex>
@@ -74,7 +75,9 @@ void Viewer::Run()
     pangolin::Var<bool> menuSaveMap("menu.Save Map",false,false); //TODO
     pangolin::Var<bool> menuReset("menu.Reset",false,false);
     pangolin::Var<bool> menuShutDown("menu.Shut Down",false,false);
-
+    pangolin::Var<double> showPosX("menu.X", 0);
+    pangolin::Var<double> showPosY("menu.Y", 0);
+    pangolin::Var<double> showPosZ("menu.Z", 0);
 
     // Define Camera Render Object (for view / scene browsing)
     pangolin::OpenGlRenderState s_cam(
@@ -135,6 +138,9 @@ void Viewer::Run()
         if(menuShowPoints)
             mpMapDrawer->DrawMapPoints();
 
+        showPosX=Twc.m[4];
+        showPosY=Twc.m[8];
+        showPosZ=Twc.m[12];
         pangolin::FinishFrame();
 
         cv::Mat im = mpFrameDrawer->DrawFrame();
