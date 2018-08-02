@@ -215,6 +215,7 @@ protected:
     bool mbRGB;
     list<MapPoint*> mlpTemporalPoints;
 	bool is_preloaded;
+	bool is_FramePoseBack;
 };
 
 } //namespace ORB_SLAM

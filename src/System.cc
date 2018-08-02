@@ -34,7 +34,7 @@ bool has_suffix(const std::string &str, const std::string &suffix) {
 namespace ORB_SLAM2
 {
 
-System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor,
+System::System(const string &strVocFile, const string &strSettingsFile, const string &strArucoParamsFile, const eSensor sensor,
                const bool bUseViewer, const bool bReuse, const string &mapFilePath ):mSensor(sensor),mbReset(false),mbActivateLocalizationMode(bReuse),
         mbDeactivateLocalizationMode(false)
 {
@@ -143,12 +143,17 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     mpLoopCloser = new LoopClosing(mpMap, mpKeyFrameDatabase, mpVocabulary, mSensor!=MONOCULAR);
     mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, mpLoopCloser);
 
+    //Initialize the ARUCO detector thread and launch
+    mpArucoDetector = new ArucoDetector(strSettingsFile, strArucoParamsFile);
+    mptArucoDetector = new thread(&ORB_SLAM2::ArucoDetector::Run, mpArucoDetector);
+
     //Initialize the Viewer thread and launch
-    mpViewer = new Viewer(this, mpFrameDrawer,mpMapDrawer,mpTracker,strSettingsFile, bReuse);
+    mpViewer = new Viewer(this, mpFrameDrawer,mpMapDrawer,mpTracker, mpArucoDetector, strSettingsFile, bReuse);
     if(bUseViewer)
         mptViewer = new thread(&Viewer::Run, mpViewer);
 
     mpTracker->SetViewer(mpViewer);
+    mpArucoDetector->SetViewer(mpViewer);
 
     //Set pointers between threads
     mpTracker->SetLocalMapper(mpLocalMapper);
@@ -159,6 +164,8 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
 
     mpLoopCloser->SetTracker(mpTracker);
     mpLoopCloser->SetLocalMapper(mpLocalMapper);
+
+    //mpArucoDetector->SetSystem();
 }
 
 cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp)
@@ -309,6 +316,16 @@ void System::DeactivateLocalizationMode()
 {
     unique_lock<mutex> lock(mMutexMode);
     mbDeactivateLocalizationMode = true;
+}
+
+void System::ActivateArucoDetectionMode() {
+    unique_lock<mutex> lock(mMutexMode);
+    mbActivateArucoDetectionMode = true;
+}
+
+void System::DeactivateArucoDetectionMode() {
+    unique_lock<mutex> lock(mMutexMode);
+    mbDeactivateArucoDetectionMode = true;
 }
 
 void System::Reset()

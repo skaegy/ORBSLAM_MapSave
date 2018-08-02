@@ -27,8 +27,8 @@
 namespace ORB_SLAM2
 {
 
-Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Tracking *pTracking, const string &strSettingPath, bool bReuse):
-    mpSystem(pSystem), mpFrameDrawer(pFrameDrawer),mpMapDrawer(pMapDrawer), mpTracker(pTracking),
+Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Tracking *pTracking, ArucoDetector *pArucoDetector, const string &strSettingPath, bool bReuse):
+    mpSystem(pSystem), mpFrameDrawer(pFrameDrawer),mpMapDrawer(pMapDrawer), mpTracker(pTracking),mpArucoDetector(pArucoDetector),
     mbFinishRequested(false), mbFinished(true), mbStopped(false), mbStopRequested(false)
 {
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
@@ -72,7 +72,7 @@ void Viewer::Run()
     pangolin::Var<bool> menuShowKeyFrames("menu.Show KeyFrames",true,true);
     pangolin::Var<bool> menuShowGraph("menu.Show Graph",true,true);
     pangolin::Var<bool> menuLocalizationMode("menu.Localization Mode",mbReuse,true);
-    pangolin::Var<bool> menuSaveMap("menu.Save Map",false,false); //TODO
+    pangolin::Var<bool> menuSaveMap("menu.Save Map",false,false);
     pangolin::Var<bool> menuReset("menu.Reset",false,false);
     pangolin::Var<bool> menuShutDown("menu.Shut Down",false,false);
     pangolin::Var<double> showPosX("menu.X", 0);
@@ -94,6 +94,7 @@ void Viewer::Run()
     Twc.SetIdentity();
 
     cv::namedWindow("ORB-SLAM2: Current Frame");
+    cv::namedWindow("aruco");
 
     bool bFollow = true;
     bool bLocalizationMode = mbReuse;
@@ -145,7 +146,13 @@ void Viewer::Run()
 
         cv::Mat im = mpFrameDrawer->DrawFrame();
         cv::imshow("ORB-SLAM2: Current Frame",im);
-        cv::waitKey(mT);
+        cv::waitKey(1);
+        cv::Mat imAruco = mpArucoDetector->DrawAruco();
+        if (imAruco.channels()==3){
+            cv::imshow("aruco", imAruco);
+            cv::waitKey(1);
+        }
+        //cv::waitKey(mT);
 
         if(menuReset)
         {

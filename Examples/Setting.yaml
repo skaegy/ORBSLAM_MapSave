@@ -20,4 +20,8 @@ is_ReuseMap: 0
 
 ReuseMap: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/Monocular/Slam_latest_Map.bin
 
+# the Aruco Parameters File Path
+
+Aruco_Parameters: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/detector_params.yml
+
 

@@ -20,11 +20,14 @@
 
 
 #include<iostream>
+#include <vector>
+#include <list>
+#include <thread>
 #include<opencv2/core/core.hpp>
 #include"System.h"
+#include"ArucoDetect.h"
 
 using namespace std;
-
 
 int main()
 {
@@ -40,38 +43,48 @@ int main()
     int ReuseMap = fSettings["is_ReuseMap"];
     const string strMapPath = fSettings["ReuseMap"];
 
+    const string strArucoParamsFile = fSettings["Aruco_Parameters"];
+    const string strArucoSettingsFile = strCamSet;
+
     bool bReuseMap = false;
     if (1 == ReuseMap)
         bReuseMap = true;
 
+    // Create ArucoDetector system.
+    //ORB_SLAM2::ArucoDetector ArucoDetector(strArucoSettingsFile, strArucoParamsFile);
+    //std::thread* mptArucoDetector;
+    //mptArucoDetector = new thread(&ORB_SLAM2::ArucoDetector::Run, &ArucoDetector);
+
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    ORB_SLAM2::System SLAM(strORBvoc,strCamSet,ORB_SLAM2::System::MONOCULAR,true, bReuseMap,strMapPath);
+    ORB_SLAM2::System SLAM(strORBvoc,strCamSet,strArucoParamsFile, ORB_SLAM2::System::MONOCULAR,true, bReuseMap,strMapPath);
 
     cout << endl << "-------" << endl;
     cout << "Start processing sequence ..." << endl;
 
     // Main loop
-    cv::Mat im;
+    cv::Mat imSlam, imAruco;
     cv::VideoCapture capture("/dev/video2");
 while(1)
     {
         // Read image from file
-        capture >>im;
-        if(im.empty())
+        capture >> imSlam;
+        imSlam.copyTo(imAruco);
+        if(imSlam.empty())
         {
             cerr << endl << "Failed to load image!" << endl;
             return 1;
         }
         // Pass the image to the SLAM system
-        SLAM.TrackMonocular(im,0);
+        SLAM.TrackMonocular(imSlam, 0);
+        SLAM.mpArucoDetector->ArucoLoadImage(imAruco, 0);
 
-        if(SLAM.isShutdown())
-            break;
+        //if(SLAM.isShutdown())
+            //break;
     }
     // Stop all threads
-    SLAM.Shutdown();
+    //SLAM.Shutdown();
     // Save camera trajectory
-    SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
+    //SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
 
     return 0;
 }

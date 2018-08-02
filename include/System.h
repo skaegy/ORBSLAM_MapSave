@@ -51,6 +51,7 @@ class Map;
 class Tracking;
 class LocalMapping;
 class LoopClosing;
+class ArucoDetector;
 
 class System
 {
@@ -67,7 +68,8 @@ public:
 	friend class boost::serialization::access;
 
     // Initialize the SLAM system. It launches the Local Mapping, Loop Closing and Viewer threads.
-    System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor, const bool bUseViewer = true, const bool reuse= false, const string & mapFilePath = "");
+    System(const string &strVocFile, const string &strSettingsFile, const string &strArucoParamsFile, const eSensor sensor,
+            const bool bUseViewer = true, const bool reuse= false, const string & mapFilePath = "");
 
     // Proccess the given stereo frame. Images must be synchronized and rectified.
     // Input images: RGB (CV_8UC3) or grayscale (CV_8U). RGB is converted to grayscale.
@@ -84,6 +86,9 @@ public:
     // Input images: RGB (CV_8UC3) or grayscale (CV_8U). RGB is converted to grayscale.
     // Returns the camera pose (empty if tracking fails).
     cv::Mat TrackMonocular(const cv::Mat &im, const double &timestamp);
+
+    void ActivateArucoDetectionMode();
+    void DeactivateArucoDetectionMode();
 
     // This stops local mapping thread (map building) and performs only camera tracking.
     void ActivateLocalizationMode();
@@ -130,6 +135,7 @@ public:
     // SaveMap(const string &filename);
     // LoadMap(const string &filename);
 
+    ArucoDetector* mpArucoDetector;
 private:
 
     // Input sensor
@@ -167,6 +173,7 @@ private:
     std::thread* mptLocalMapping;
     std::thread* mptLoopClosing;
     std::thread* mptViewer;
+    std::thread* mptArucoDetector;
 
     // Reset flag
     std::mutex mMutexReset;
@@ -178,6 +185,8 @@ private:
     std::mutex mMutexMode;
     bool mbActivateLocalizationMode;
     bool mbDeactivateLocalizationMode;
+    bool mbActivateArucoDetectionMode;
+    bool mbDeactivateArucoDetectionMode;
 };
 
 }// namespace ORB_SLAM
