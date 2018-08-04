@@ -253,23 +253,25 @@ cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const
 		* 以及对条件变量的使用。
 		*/
         unique_lock<mutex> lock(mMutexMode);
+        // Localization mode: Tracking + Localization --> Close mapping
         if(mbActivateLocalizationMode)
         {
             mpLocalMapper->RequestStop();
-
             // Wait until Local Mapping has effectively stopped
             while(!mpLocalMapper->isStopped())
             {
                 usleep(1000);
             }
 
+            // Launch Tracker thread
             mpTracker->InformOnlyTracking(true);
             mbActivateLocalizationMode = false;
         }
+        // Mapping mode: Tracking + Localization + Mapping
         if(mbDeactivateLocalizationMode)
         {
             mpTracker->InformOnlyTracking(false);
-            mpLocalMapper->Release();
+            mpLocalMapper->Release(); // Release local mapper thread
             mbDeactivateLocalizationMode = false;
         }
     }
@@ -289,15 +291,27 @@ cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const
 
 cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const double &timestamp)
 {
+    /* TrackStereo:
+     * Input:
+     *      cv::Mat &im --> RGB image
+     *      cv::Mat &depthmap --> Depth image
+     *      const double &timestamp --> timestamp
+     * Return:
+     *      mpTracker->GrabImageRGBD(im,depthmap,timestamp);
+     *      cv::Mat --> Camera pose
+     */
     if(mSensor!=RGBD)
     {
         cerr << "ERROR: you called TrackRGBD but input sensor was not set to RGBD." << endl;
         exit(-1);
-    }    
+    }
 
-    // Check mode change
+    // Check mode change:
+    // 1) Tracking + Localization
+    // 2) Tracking + Localization + Mapping
     {
         unique_lock<mutex> lock(mMutexMode);
+        // Tracking + Localization
         if(mbActivateLocalizationMode)
         {
             mpLocalMapper->RequestStop();
@@ -311,6 +325,7 @@ cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const doub
             mpTracker->InformOnlyTracking(true);
             mbActivateLocalizationMode = false;
         }
+        // Tracking + Mapping
         if(mbDeactivateLocalizationMode)
         {
             mpTracker->InformOnlyTracking(false);
@@ -330,6 +345,24 @@ cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const doub
     }
 
     return mpTracker->GrabImageRGBD(im,depthmap,timestamp);
+    /*
+     * Feature (current frame) > 500 --> Initialization
+     * Frame 1 = Key frame, pose = [I, 0]
+     *
+    // 设置第一帧为关键帧  位姿为 [I 0]
+    // 根据第一帧视差求得的深度 计算3D点
+    // 生成地图 添加地图点 地图点观测帧 地图点最好的描述子 更新地图点的方向和距离
+    //                 关键帧的地图点 当前帧添加地图点  地图添加地图点
+    // 显示地图
+    //  ---- 计算参考帧到当前帧 的变换 Tcr = mTcw  * mTwr---------------
+
+    // 后面的帧-------------------------------------------------------------------------------------------------
+    // 有运动 则跟踪上一帧 跟踪失败进行 跟踪参考关键帧
+    // 没运动 或者 最近才进行过 重定位 则 跟踪 最近的一个关键帧 参考关键帧
+    // 参考关键帧 跟踪失败 则进行 重定位  跟踪所有关键帧
+    // ----- 跟踪局部地图
+    //  ---- 计算参考帧到当前帧 的变换 Tcr = mTcw  * mTwr---------------
+     */
 }
 
 cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
