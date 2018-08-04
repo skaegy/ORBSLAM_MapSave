@@ -189,44 +189,69 @@ System::System(const string &strVocFile, const string &strSettingsFile, const st
     mpLocalMapper = new LocalMapping(mpMap, mSensor==MONOCULAR);
     mptLocalMapping = new thread(&ORB_SLAM2::LocalMapping::Run,mpLocalMapper);
 
-    //Initialize the Loop Closing thread and launch
+    // 7. Initialize the Loop Closing thread and launch
     mpLoopCloser = new LoopClosing(mpMap, mpKeyFrameDatabase, mpVocabulary, mSensor!=MONOCULAR);
     mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, mpLoopCloser);
 
-    //Initialize the ARUCO detector thread and launch
+    // 8. Initialize the ARUCO detector thread and launch
     mpArucoDetector = new ArucoDetector(strSettingsFile, strArucoParamsFile);
     mptArucoDetector = new thread(&ORB_SLAM2::ArucoDetector::Run, mpArucoDetector);
 
-    //Initialize the Viewer thread and launch
+    // 9. Initialize the Viewer thread and launch
     mpViewer = new Viewer(this, mpFrameDrawer,mpMapDrawer,mpTracker, mpArucoDetector, strSettingsFile, bReuse);
-    if(bUseViewer)
+    if(bUseViewer){
         mptViewer = new thread(&Viewer::Run, mpViewer);
-
+    }
     mpTracker->SetViewer(mpViewer);
-    mpArucoDetector->SetViewer(mpViewer);
 
-    //Set pointers between threads
+    // 10. Set pointers between threads
+    // Link threads (Tracker --> Local mapper & Loop Closer)
     mpTracker->SetLocalMapper(mpLocalMapper);
     mpTracker->SetLoopClosing(mpLoopCloser);
 
+    // Link threads (Local Mapper --> Tracker & Loop Closer)
     mpLocalMapper->SetTracker(mpTracker);
     mpLocalMapper->SetLoopCloser(mpLoopCloser);
 
+    // Link threads (LoopCloser --> Tracker & Local mapper)
     mpLoopCloser->SetTracker(mpTracker);
     mpLoopCloser->SetLocalMapper(mpLocalMapper);
 
+    // Link threads (ArucoDetector --> Viewer)
+    // In linux, opencv only can plots multiple "imshow" in one thread
+    // So, we need to transfer the image to viewer
+    mpArucoDetector->SetViewer(mpViewer);
 }
 
 cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp)
 {
+    /* TrackStereo:
+     * Input:
+     *      cv::Mat &imLeft --> Left image
+     *      cv::Mat &imRight --> Right image
+     *      const double &timestamp --> timestamp
+     * Return:
+     *      mpTracker -> GrabImageStereo(imLeft,imRight,timestamp);
+     *      cv::Mat --> Camera pose
+     */
     if(mSensor!=STEREO)
     {
         cerr << "ERROR: you called TrackStereo but input sensor was not set to STEREO." << endl;
         exit(-1);
     }   
 
-    // Check mode change
+    // Check mode change:
+    // 1) Tracking + Localization
+    // 2) Tracking + Localization + Mapping
     {
+        /*
+		* class 'unique_lock' 是一个一般性质的 mutex 属主的封装，
+		* 提供延迟锁定（deferred locking），
+		* 限时尝试（time-constrained attempts），
+		* 递归锁定（recursive locking），
+		* 锁主的转换，
+		* 以及对条件变量的使用。
+		*/
         unique_lock<mutex> lock(mMutexMode);
         if(mbActivateLocalizationMode)
         {
