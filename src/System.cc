@@ -18,6 +18,53 @@
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
 */
 
+/**
+ * System.cc
+ * ORB-SLAM: borrow the idea from PTAM
+ * 1) Rubble --> ORB feature
+ * 2) DBoW2 --> Place recognition --> Loop closing
+ * 3) Strasdat --> Loop update
+ * 4) Covisibility graph
+ * 5) Kuemmerle & Grisetti --> g2o (graph optimization)
+ *
+ * Input:
+ * 1) Input image:
+ *      - Monocular --> GrabImageMonocular(im)
+ *      - Stereo --> GrabImageStereo(imLeft, imRight)
+ *      - RGB-D --> GrabImageRGBD(imRGB, imD)
+ *
+ * 2) Convert to grayscale image
+ *      - Monocular --> mImGray
+ *      - Stereo --> mImGray, mImGrayRight
+ *      - RGB-D --> mImGray, imDepth
+ * 3) Build Frame
+ * [ORBextractor* mpIniORBextractor, *mpORBextractorLeft, mpORBextractorRight]
+ *      - Monocular (NOT_INITIALIZED) --> Frame(mImGray, mpIniORBextractor)
+ *      - Monocular (INITIALIZED) --> Frame(mImGray, mpORBextractorLeft)
+ *      - Stereo --> Frame(mImGray, mImGrayRight, mpORBextractorLeft, mpORBextractorRight)
+ *      - RGB-D --> Frame(mImGray, imDepth, mpORBextractorLeft)
+ * 4) Track()
+ * Then go to the tracking thread --> Tracking.cc
+
+ ** Three main threads **
+ *  [1] Tracking
+ *      - Extract ORB features
+ *      - Estimate pose
+ *      - Pose refinement
+ *      - Key frame selection
+ *  [2] Mapping
+ *      - Insert Key Frame --> Update Maps
+ *      - Remove outliers, validate the map points
+ *      - Triangular --> Generate new map points
+ *      - Local buddle adjustment --> Key frame and adjacent key frames
+ *      - Validate Key Frame --> Remove repeat key frames
+ *  [3] Loop Closing
+ *      - Select similar frame --> DBOW2
+ *      - Closed Loop Detection (3D <-> 3D transformation, scale! RANSAC)
+ *      - Update map
+ *      - Graph Optimization --> g2o, update all the map points
+ *
+ **/
 
 
 #include "System.h"
@@ -34,6 +81,7 @@ bool has_suffix(const std::string &str, const std::string &suffix) {
 namespace ORB_SLAM2
 {
 
+// Initialization --> Vocabulary, setting file, sensor
 System::System(const string &strVocFile, const string &strSettingsFile, const string &strArucoParamsFile, const eSensor sensor,
                const bool bUseViewer, const bool bReuse, const string &mapFilePath ):mSensor(sensor),mbReset(false),mbActivateLocalizationMode(bReuse),
         mbDeactivateLocalizationMode(false)
@@ -62,8 +110,10 @@ System::System(const string &strVocFile, const string &strSettingsFile, const st
        exit(-1);
     }
 
-
-    //Load ORB Vocabulary
+    // 1. Load ORB Vocabulary
+    /* Use [new] to create object,
+     * Similar to apply for RAM, return the pointer
+     * Need to be [delete] after usage*/
     mpVocabulary = new ORBVocabulary();
     cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
     bool bVocLoad = false; // chose loading method based on file extension
@@ -72,8 +122,6 @@ System::System(const string &strVocFile, const string &strSettingsFile, const st
     else
         bVocLoad = mpVocabulary->loadFromBinaryFile(strVocFile);
 
-
-    //bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
     if(!bVocLoad)
     {
         cerr << "Wrong path to vocabulary. " << endl;
@@ -81,10 +129,13 @@ System::System(const string &strVocFile, const string &strSettingsFile, const st
         exit(-1);
     }
     cout << "Vocabulary loaded!" << endl << endl;
-    //Create KeyFrame Database
+
+    // 2. Create KeyFrame Database
+    // Create [mpKeyFrameDatabase-->pointer] according to the feature dictionary [mpVocabulary]
     mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary);
 
-    //Create the Map
+    // 3. Create the Map
+    // New map or load map
     if (!bReuse)
     {
         mpMap = new Map();
@@ -120,22 +171,21 @@ System::System(const string &strVocFile, const string &strSettingsFile, const st
         {
             (*it)->UpdateConnections();
         }
-       
-
 	}
 	cout << endl << mpMap <<" : is the created map address" << endl;
 
 
-    //Create Drawers. These are used by the Viewer
-    mpFrameDrawer = new FrameDrawer(mpMap, bReuse);
-    mpMapDrawer = new MapDrawer(mpMap, strSettingsFile);
+    // 4. Create Frame Drawers. These are used by the Viewer
+    mpFrameDrawer = new FrameDrawer(mpMap, bReuse); // Show KeyFrames
+    mpMapDrawer = new MapDrawer(mpMap, strSettingsFile); // Show Map Points
+    // TODO mpHumanDrawer = new HumanDrawer(mpMap, xxx);
 
-    //Initialize the Tracking thread
+    // 5. Initialize the Tracking thread, not launch
     //(it will live in the main thread of execution, the one that called this constructor)
     mpTracker = new Tracking(this, mpVocabulary, mpFrameDrawer, mpMapDrawer,
                              mpMap, mpKeyFrameDatabase, strSettingsFile, mSensor, bReuse);
 
-    //Initialize the Local Mapping thread and launch
+    // 6. Initialize the Local Mapping thread and launch
     mpLocalMapper = new LocalMapping(mpMap, mSensor==MONOCULAR);
     mptLocalMapping = new thread(&ORB_SLAM2::LocalMapping::Run,mpLocalMapper);
 
@@ -165,7 +215,6 @@ System::System(const string &strVocFile, const string &strSettingsFile, const st
     mpLoopCloser->SetTracker(mpTracker);
     mpLoopCloser->SetLocalMapper(mpLocalMapper);
 
-    //mpArucoDetector->SetSystem();
 }
 
 cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp)
