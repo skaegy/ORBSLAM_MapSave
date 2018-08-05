@@ -345,23 +345,21 @@ cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const doub
     }
 
     return mpTracker->GrabImageRGBD(im,depthmap,timestamp);
-    /*
+    /* 1) Initialization (t=1)
      * Feature (current frame) > 500 --> Initialization
      * Frame 1 = Key frame, pose = [I, 0]
+     * Calculate 3D points according to the parallax
+     * Generate map points --> & features & update orientation and distance of map
+     *                         & map points of key frame & add points on map
+     * Show map --> Transformation from reference frame to current frame
+     *              Tcr = mTcw * mTwr
      *
-    // 设置第一帧为关键帧  位姿为 [I 0]
-    // 根据第一帧视差求得的深度 计算3D点
-    // 生成地图 添加地图点 地图点观测帧 地图点最好的描述子 更新地图点的方向和距离
-    //                 关键帧的地图点 当前帧添加地图点  地图添加地图点
-    // 显示地图
-    //  ---- 计算参考帧到当前帧 的变换 Tcr = mTcw  * mTwr---------------
-
-    // 后面的帧-------------------------------------------------------------------------------------------------
-    // 有运动 则跟踪上一帧 跟踪失败进行 跟踪参考关键帧
-    // 没运动 或者 最近才进行过 重定位 则 跟踪 最近的一个关键帧 参考关键帧
-    // 参考关键帧 跟踪失败 则进行 重定位  跟踪所有关键帧
-    // ----- 跟踪局部地图
-    //  ---- 计算参考帧到当前帧 的变换 Tcr = mTcw  * mTwr---------------
+     * 2) t>1
+     *      a) Motion exists --> Track the last frame
+     *         ---- Track failure --> Track reference key frame
+     *      b) No motion --> Track the last key frame (key reference frame)
+     *         ---- Track local map
+     *         ---- Transformation from reference frame to current frame: Tcr = mTcw * mTwr
      */
 }
 
@@ -374,9 +372,12 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
         exit(-1);
     }
 
-    // Check mode change
+    // Check mode change:
+    // 1) Tracking + Localization
+    // 2) Tracking + Localization + Mapping
     {
         unique_lock<mutex> lock(mMutexMode);
+        // Tracking + Localization
         if(mbActivateLocalizationMode)
         {
             mpLocalMapper->RequestStop();
@@ -390,6 +391,7 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
             mpTracker->InformOnlyTracking(true);
             mbActivateLocalizationMode = false;
         }
+        // Tracking + Localization + Mapping
         if(mbDeactivateLocalizationMode)
         {
             mpTracker->InformOnlyTracking(false);
@@ -410,6 +412,16 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
 
     //return (mpTracker->GrabImageMonocular(im,timestamp)).clone();
     return (mpTracker->GrabImageMonocular(im,timestamp));
+    /* 1) Initialization (t=1)
+     * Condition --> No. of features (two adjacent frames) > 100 && No. of matching features > 100
+     * Frame 1 = Key frame, pose = [I, 0]
+     * Frame 2 --> Global optimization to [R t] & 3D points
+     * Generate map points by minimizing the reprojecting error of BA --> Map optimization & Pose optimization & 3D map points
+     * Normalization the pose/position of Frame 2 --> Translational vector and coordinates of the map points
+     * Show update
+     * TODO: Normalization using the ARUCO marker in the first set of frames
+     * 2) t> 2
+     */
 
 }
 
@@ -455,11 +467,14 @@ bool System::isShutdown()
 {
     return mbShutdown;
 }
+
 void System::Shutdown()
 {
     mpLocalMapper->RequestFinish();
     mpLoopCloser->RequestFinish();
     mpViewer->RequestFinish();
+    //TODO: Shutdown the ArucoDetector thread
+    //mpArucoDetector->RequestFinish();
 
     // Wait until all thread have effectively stopped
     while(!mpLocalMapper->isFinished() || !mpLoopCloser->isFinished()  ||
