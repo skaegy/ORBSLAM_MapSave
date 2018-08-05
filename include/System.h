@@ -56,7 +56,7 @@ class ArucoDetector;
 class System
 {
 public:
-    // Input sensor
+    // Input sensor: the type of input sensor
     enum eSensor{
         MONOCULAR=0,
         STEREO=1,
@@ -91,8 +91,10 @@ public:
     void DeactivateArucoDetectionMode();
 
     // This stops local mapping thread (map building) and performs only camera tracking.
+    // Localization + Tracking
     void ActivateLocalizationMode();
     // This resumes local mapping thread and performs SLAM again.
+    // Local mapping + Tracking
     void DeactivateLocalizationMode();
 
     // Reset the system (clear map)
@@ -131,14 +133,13 @@ public:
     // See format details at: http://www.cvlibs.net/datasets/kitti/eval_odometry.php
     void SaveTrajectoryKITTI(const string &filename);
 
-    // TODO: Save/Load functions
-    // SaveMap(const string &filename);
-    // LoadMap(const string &filename);
-
+    // ARUCO marker detector. It detect the aruco marker in the rgb image and calculate the distance and relative poistion
+    // between the camera and the detected marker.
     ArucoDetector* mpArucoDetector;
 private:
 
     // Input sensor
+    // enum: MONOCULAR, STEREO, RGBD
     eSensor mSensor;
 
     // ORB vocabulary used for place recognition and feature matching.
@@ -147,41 +148,51 @@ private:
     // KeyFrame database for place recognition (relocalization and loop detection).
     KeyFrameDatabase* mpKeyFrameDatabase;
 
-    // Map structure that stores the pointers to all KeyFrames and MapPoints.
+    // Map structure that stores the [pointers] to all KeyFrames and MapPoints.
     Map* mpMap;
 
     // Tracker. It receives a frame and computes the associated camera pose.
     // It also decides when to insert a new keyframe, create some new MapPoints and
     // performs relocalization if tracking fails.
+    // [Pointer]
     Tracking* mpTracker;
 
     // Local Mapper. It manages the local map and performs local bundle adjustment.
+    // [Pointer]
     LocalMapping* mpLocalMapper;
 
-    // Loop Closer. It searches loops with every new keyframe. If there is a loop it performs
-    // a pose graph optimization and full bundle adjustment (in a new thread) afterwards.
+    // Loop Closer. It searches loops with every new keyframe.
+    // If there is a loop it performs a pose graph optimization and full bundle adjustment (in a new thread) afterwards.
+    // [Pointer]
     LoopClosing* mpLoopCloser;
 
     // The viewer draws the map and the current camera pose. It uses Pangolin.
+    // [Pointer]
     Viewer* mpViewer;
 
+    // [Pointer] of draw key frame
     FrameDrawer* mpFrameDrawer;
+    // [Pointer] of draw map
     MapDrawer* mpMapDrawer;
 
     // System threads: Local Mapping, Loop Closing, Viewer.
     // The Tracking thread "lives" in the main execution thread that creates the System object.
-    std::thread* mptLocalMapping;
-    std::thread* mptLoopClosing;
-    std::thread* mptViewer;
-    std::thread* mptArucoDetector;
+    // [Pointer]
+    std::thread* mptLocalMapping; // Pointer of local mapping thread
+    std::thread* mptLoopClosing;  // Pointer of loop closing thread
+    std::thread* mptViewer;       // Pointer of Viewer thread
+    std::thread* mptArucoDetector;// Pointer of ARUCO marker detect thread
 
-    // Reset flag
+    // Thread Reset flag
     std::mutex mMutexReset;
     bool mbReset;
 
     bool mbShutdown = false;
 
     // Change mode flags
+    // 使用std::mutex创建互斥量，通过调用成员函数lock()进行上锁，unlock()进行解锁。
+    // 但不方便的是需要记住锁后要在函数出口再次调用unlock()解锁.
+    // 因此可以用std::lock_guard,其会在构造的时候提供已锁的互斥量，并在析构的时候进行解锁，从而保证自动管理。
     std::mutex mMutexMode;
     bool mbActivateLocalizationMode;
     bool mbDeactivateLocalizationMode;
