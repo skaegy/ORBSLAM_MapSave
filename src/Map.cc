@@ -98,7 +98,6 @@ template<class Archive>
 
             KeyFrame* pKeyFrame = new KeyFrame;
             ar & *pKeyFrame;
-			/* TODO : VerifyHere*/
             mvpKeyFrameOrigins.push_back(*mspKeyFrames.begin());
         }     
 

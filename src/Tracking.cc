@@ -18,11 +18,77 @@
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
 */
 
+/**
+* This file is part of ORB-SLAM2.
+*
+* mpMap contains [MapPoint] & [KeyFrame]
+* Keyframes --> A ORB feature --> Map point --> Indexes
+*
+* --Two main functions
+* 1) Find most discriminative ORB features as the descriptor of the map
+* pNewMP->ComputeDistinctiveDescriptors();
+*
+* 2) Update the Direction & Distance of observation
+* pNewMP->UpdateNormalAndDepth();
+*
+* Tracking thread:
+* Image in each Frame ---> Extract ORB features -----> Estimate R and t according to the estimated data in the last frame
+* ------> Track local map & optimize pose ------> Keyframe or not
+*
+* 1) Initialization
+*       Monocular --> MonocularInitialization()
+*       Stereo --> StereoInitialization
+*
+* 2) Track the pose and position of the camera
+*       Tracking + Localization --> Stop local mapping & stop generating keyframe
+*       mbOnlyTracking(false)
+*       TrackWithMotionModel()
+*       TrackReferenceKeyFrame()
+*       Relocalization()
+*
+        a) TrackWithMotionModel()
+        Assume that the object is with constant velocity
+            TrackWithMotionModel(): Pose&Position(t-1) ==> Pose&Position(t)
+        Matching: projection
+            matcher.SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, ...)。
+
+        b TrackReferenceKeyFrame()
+        When small number of features are matched, then it becomes track reference Key frame mode
+        Fast matching with an adjacent Key frame: Bag-of-Words(BoW)
+            BoW of current frame ==> Feature matching: matcher.SearchByBoW(KeyFrame *pKF, Frame &F, ...)；
+            Matched features in a key frame ==> Optimize the pose and position of the camera
+
+        c Relocalization(): Global
+            if (TrackRerenceKeyFrame()==failure)
+            then Relocalization();
+                BoW of current frame ==> Matching with all the key frames ==> RANSAC to select several key frames
+                vector<KeyFrame*> vpCandidateKFs = mpKeyFrameDB->DetectRelocalizationCandidates(&mCurrentFrame);
+                PnP algorithm to solve the pose and position
+
+* 3) Track Local Map
+*       UpdateLocalMap() ==> UpdateLocalKeyFrames() & UpdateLocalPoints()
+*       Find the best match between local map points and current frame
+*       [!!!] Minimize the reprojection error (3D-->2D): si * pi = K * T * Pi = K * exp(f) * Pi
+*
+* 4) Insert a Key frame
+*       if
+*           No key frame in a long period
+*           Local mapping thread is idle
+*           Tracking tends to lost
+*           Low tracking point ratio
+*
+* 5) Create a Key frame
+*       KeyFrame(mCurrentFrame, mpMap, mpKeyFrameDB)
+*       Stereo & RGBD: Add some properties for the MapPoints
+*
+* 6) LocalMapping Thread
+*
+**/
 
 #include "Tracking.h"
 
 #include<opencv2/core/core.hpp>
-#include<opencv2/features2d/features2d.hpp>
+#include<opencv2/features2d/features2d.hpp> // ORB feature detection and extraction
 
 #include"ORBmatcher.h"
 #include"FrameDrawer.h"
@@ -31,10 +97,9 @@
 #include"Initializer.h"
 
 #include"Optimizer.h"
-#include"PnPsolver.h"
+#include"PnPsolver.h" // Minimize reprojection error, 3D to 2D pair
 
 #include<iostream>
-
 #include<mutex>
 
 
@@ -42,7 +107,16 @@ using namespace std;
 
 namespace ORB_SLAM2
 {
-
+/* --- Rules
+ *      "m": member variables of a class
+ *      "p": pointer
+ *      "n": int
+ *      "b": bool
+ *      "s": set
+ *      "v": vector
+ *      "l": list
+ *      "KF": KeyPoint
+ * */
 Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Map *pMap, KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor, const bool bReuse):
     mState(NO_IMAGES_YET), mSensor(sensor), mbOnlyTracking(bReuse), mbVO(false), mpORBVocabulary(pVoc),
     mpKeyFrameDB(pKFDB), mpInitializer(static_cast<Initializer*>(NULL)), mpSystem(pSys),
@@ -51,6 +125,11 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     // Load camera parameters from settings file
 
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
+    /* 1） Camera Intrinsic Parameters Matrix
+     *         |fx   0    cx|
+     *     K = |0    fy   cy|
+     *         |0    0     1|
+     * */
     float fx = fSettings["Camera.fx"];
     float fy = fSettings["Camera.fy"];
     float cx = fSettings["Camera.cx"];
@@ -61,8 +140,11 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     K.at<float>(1,1) = fy;
     K.at<float>(0,2) = cx;
     K.at<float>(1,2) = cy;
-    K.copyTo(mK);
+    K.copyTo(mK); // Local variable --> class member variable
 
+    /* 2)  Distortion correction
+     * [k1 k2 p1 p2 (k3)]
+     * */
     cv::Mat DistCoef(4,1,CV_32F);
     DistCoef.at<float>(0) = fSettings["Camera.k1"];
     DistCoef.at<float>(1) = fSettings["Camera.k2"];
@@ -74,9 +156,9 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
         DistCoef.resize(5);
         DistCoef.at<float>(4) = k3;
     }
-    DistCoef.copyTo(mDistCoef);
+    DistCoef.copyTo(mDistCoef); // Local variable --> class member variable
 
-    mbf = fSettings["Camera.bf"];
+    mbf = fSettings["Camera.bf"]; // baseline * fx
 
     float fps = fSettings["Camera.fps"];
     if(fps==0)
@@ -91,6 +173,7 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     mMinFrames = 0;
     mMaxFrames = fps;
 
+    // 3) Demonstrate camera parameters
     cout << endl << "Camera Parameters: " << endl;
     cout << "- fx: " << fx << endl;
     cout << "- fy: " << fy << endl;
@@ -113,19 +196,21 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     else
         cout << "- color order: BGR (ignored if grayscale)" << endl;
 
-    // Load ORB parameters
+    // 4) Load ORB parameters
+    int nFeatures = fSettings["ORBextractor.nFeatures"]; // Number of features in each frame
+    float fScaleFactor = fSettings["ORBextractor.scaleFactor"]; // Scale factor in image pyramid
+    int nLevels = fSettings["ORBextractor.nLevels"]; // No. of levels of pyramid
+    int fIniThFAST = fSettings["ORBextractor.iniThFAST"]; // Initial Threshold for Fast corner extraction
+    int fMinThFAST = fSettings["ORBextractor.minThFAST"]; // Minimal Threshold for Fast corner extraction if iniThFast fails
 
-    int nFeatures = fSettings["ORBextractor.nFeatures"];
-    float fScaleFactor = fSettings["ORBextractor.scaleFactor"];
-    int nLevels = fSettings["ORBextractor.nLevels"];
-    int fIniThFAST = fSettings["ORBextractor.iniThFAST"];
-    int fMinThFAST = fSettings["ORBextractor.minThFAST"];
-
+    // 5) Create ORB extractor
+    // Monocular/ Stereo/ RGBD all use mpORBextractorLeft
     mpORBextractorLeft = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
-
+    // Stereo: also use mpORBextractorRight
     if(sensor==System::STEREO)
         mpORBextractorRight = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
-
+    // Monocular: 2*No. of features
+    // In order to initialize, we need to normalize the scale factor using pure translation
     if(sensor==System::MONOCULAR)
         mpIniORBextractor = new ORBextractor(2*nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
 
@@ -136,14 +221,18 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     cout << "- Initial Fast Threshold: " << fIniThFAST << endl;
     cout << "- Minimum Fast Threshold: " << fMinThFAST << endl;
     cout << "- Reuse Map : " << is_preloaded << endl;
+
+    // 6) Threshold of Depth [STEREO] & [RGBD]
     if(sensor==System::STEREO || sensor==System::RGBD)
     {
+        // Determine point is far/near: mbf * ThDepth/fx
         mThDepth = mbf*(float)fSettings["ThDepth"]/fx;
         cout << endl << "Depth Threshold (Close/Far Points): " << mThDepth << endl;
     }
 
     if(sensor==System::RGBD)
     {
+        // Disparity to Depth
         mDepthMapFactor = fSettings["DepthMapFactor"];
         if(mDepthMapFactor==0)
             mDepthMapFactor=1;
@@ -153,27 +242,41 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
 
 }
 
+//Set class member of the local mapper
 void Tracking::SetLocalMapper(LocalMapping *pLocalMapper)
 {
     mpLocalMapper=pLocalMapper;
 }
 
+//Set class member of loop closing
 void Tracking::SetLoopClosing(LoopClosing *pLoopClosing)
 {
     mpLoopClosing=pLoopClosing;
 }
 
+//Set class member of viewer
 void Tracking::SetViewer(Viewer *pViewer)
 {
     mpViewer=pViewer;
 }
 
-
+/**
+  * GrabImageStereo
+  * Input: [RGB、BGR、RGBA、GRAY]
+  *     imLeft
+  *     imRight
+  *     1) Grayscale: mImGray & imGrayRight --> Initialize mCurrentFrame
+  *     2) Perform tracking
+  * Output:
+  *     Transformation matrix from world coordinate [w] to camera coordinate [c]
+  *     mTcw
+  */
 cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRectRight, const double &timestamp)
 {
     mImGray = imRectLeft;
     cv::Mat imGrayRight = imRectRight;
 
+    // 1) Any format [imLeft, imRight] --> Gray scale image [mImGray & imGrayRight]
     if(mImGray.channels()==3)
     {
         if(mbRGB)
@@ -201,8 +304,22 @@ cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRe
         }
     }
 
+    // 2) Initialize current frame
+    //      Create frame by [GrayLeft, GrayRight, Timestamp, ORBleft, ORBright, Voc, CameraParameters mK,
+    //      Distortion mDistCoef, far/close threshold mbf, mThDepth]
     mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
 
+    /*
+     * 3) Tracking
+     *      a) Initialization (t=1)
+     *          if (No. of feature > 500)
+     *          Frame 1 = Key frame, Pose = [I, 0]
+     *          Calculate depth information with Frame 1
+     *          Generate Map: Map Points, Key frame, best map descriptor, update map distance & orientation
+     *                        Map Points of Key frame, Map points of current frame, added map points
+     *          Update map viewer
+     *      b) t>1
+     * */
     Track();
 
     return mCurrentFrame.mTcw.clone();
