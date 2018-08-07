@@ -15,15 +15,13 @@ using namespace ORB_SLAM2;
 namespace ORB_SLAM2 {
 
 ArucoDetector::ArucoDetector(const string strArucoSettingFile, const string strArucoParamsFile) {
-    camMatrix = Mat::eye(3, 3, CV_32F);
-    distCoeffs = Mat::zeros(5, 1, CV_32F);
+    msArucoDrawer.camMatrix = Mat::eye(3, 3, CV_32F);
+    msArucoDrawer.distCoeffs = Mat::zeros(5, 1, CV_32F);
 
-    bool readCPOk = ArucoDetector::readCameraParameters(strArucoSettingFile, camMatrix, distCoeffs);
+    bool readCPOk = ArucoDetector::readCameraParameters(strArucoSettingFile, msArucoDrawer.camMatrix, msArucoDrawer.distCoeffs);
     if (!readCPOk) {
         cerr << "Invalid camera parameters (ORB setting) file" << endl;
     }
-    cout << camMatrix << endl;
-    cout << distCoeffs << endl;
 
     detectorParams = aruco::DetectorParameters::create();
     bool readAPFOk = ArucoDetector::readArucoParameters(strArucoParamsFile, detectorParams);
@@ -35,35 +33,18 @@ ArucoDetector::ArucoDetector(const string strArucoSettingFile, const string strA
 }
 
 void ArucoDetector::Run() {
-
-    while (1) {
-        if (mlArucoLoadImage.size() != 0) {
-            //cout << int(mlArucoLoadImage.size()) << endl;
-            Mat imAruco = mlArucoLoadImage.back();
-            mlArucoLoadImage.pop_back();
-            vector<int> ids;
-            vector<vector<Point2f> > corners, rejected;
-            vector<Vec3d> rvecs, tvecs;
-            unique_lock<mutex> lock(mMutexImage);
-            aruco::detectMarkers(imAruco, dictionary, corners, ids, detectorParams, rejected);
-
-            if (ids.size() > 0) {
-                aruco::estimatePoseSingleMarkers(corners, markerLength, camMatrix, distCoeffs, rvecs, tvecs);
-                aruco::drawDetectedMarkers(imAruco, corners, ids);
-                if (estimatePose == 1) {
-                    for (unsigned int i = 0; i < ids.size(); i++)
-                        aruco::drawAxis(imAruco, camMatrix, distCoeffs, rvecs[i], tvecs[i], markerLength * 0.5f);
-                }
-                mlArucoShowImage.push_front(imAruco);
+    while (!mbStopped) {
+        if (mlLoadImage.size()>0)
+        {
+            cv::Mat BufMat = mlLoadImage.back();
+            mlLoadImage.pop_back();
+            aruco::detectMarkers(BufMat, dictionary, msArucoDrawer.corners, msArucoDrawer.ids, detectorParams, msArucoDrawer.rejected);
+            if (msArucoDrawer.estimatePose && msArucoDrawer.ids.size() > 0) {
+                aruco::estimatePoseSingleMarkers(msArucoDrawer.corners, msArucoDrawer.markerLength, msArucoDrawer.camMatrix,
+                       msArucoDrawer.distCoeffs, msArucoDrawer.rvecs,   msArucoDrawer.tvecs);
             }
         }
     }
-}
-
-bool ArucoDetector::isStopped() {
-    unique_lock<mutex> lock(mMutexImage);
-    mStopped = true;
-    return mStopped;
 }
 
 bool
@@ -81,8 +62,8 @@ ArucoDetector::readCameraParameters(const string strArucoSettingFile, cv::Mat &c
     fs["Camera.p2"] >> distCoeffs.at<float>(3, 0);
     fs["Camera.k3"] >> distCoeffs.at<float>(4, 0);
     fs["Aruco.dictionaryId"] >> dictionaryId;
-    fs["Aruco.estimatePose"] >> estimatePose;
-    fs["Aruco.markerLength"] >> markerLength;
+    fs["Aruco.estimatePose"] >> msArucoDrawer.estimatePose;
+    fs["Aruco.markerLength"] >> msArucoDrawer.markerLength;
 
     fs.release();
     return true;
@@ -125,20 +106,69 @@ void ArucoDetector::SetViewer(ORB_SLAM2::Viewer *pViewer) {
 
 void ArucoDetector::ArucoLoadImage(const cv::Mat &im, const double &timestamp)
 {
-    Mat imForAruco;
-    im.copyTo(imForAruco);
-    mlArucoLoadImage.push_front(imForAruco);
+    cv::Mat BufMat;
+    im.copyTo(BufMat);
+    mlLoadImage.push_front(BufMat);
 }
 
-cv::Mat ArucoDetector::DrawAruco() {
-    //unique_lock<mutex> lock(mMutexImage);
-    Mat DrawMat;
-    if (mlArucoShowImage.size()!=0){
-        DrawMat = mlArucoShowImage.back();
-        mlArucoShowImage.pop_back();
+void ArucoDetector::RequestFinish()
+{
+    unique_lock<mutex> lock(mMutexFinish);
+    mbFinishRequested = true;
+}
+
+bool ArucoDetector::CheckFinish()
+{
+    unique_lock<mutex> lock(mMutexFinish);
+    return mbFinishRequested;
+}
+
+void ArucoDetector::SetFinish()
+{
+    unique_lock<mutex> lock(mMutexFinish);
+    mbFinished = true;
+}
+
+bool ArucoDetector::isFinished()
+{
+    unique_lock<mutex> lock(mMutexFinish);
+    return mbFinished;
+}
+
+void ArucoDetector::RequestStop()
+{
+    unique_lock<mutex> lock(mMutexStop);
+    if(!mbStopped)
+        mbStopRequested = true;
+}
+
+bool ArucoDetector::isStopped()
+{
+    unique_lock<mutex> lock(mMutexStop);
+    return mbStopped;
+}
+
+bool ArucoDetector::Stop()
+{
+    unique_lock<mutex> lock(mMutexStop);
+    unique_lock<mutex> lock2(mMutexFinish);
+
+    if(mbFinishRequested)
+        return false;
+    else if(mbStopRequested)
+    {
+        mbStopped = true;
+        mbStopRequested = false;
+        return true;
     }
-    //mMutexImage.unlock();
-    return DrawMat;
+
+    return false;
+}
+
+void ArucoDetector::Release()
+{
+    unique_lock<mutex> lock(mMutexStop);
+    mbStopped = false;
 }
 
 } // ORB_SLAM2

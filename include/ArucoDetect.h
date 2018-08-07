@@ -24,33 +24,52 @@ public:
 
     void Run();
 
-    bool isStopped();
-
     void ArucoLoadImage(const cv::Mat &im, const double &timestamp);
 
     void SetViewer(Viewer* pViewer);
 
-    cv::Mat DrawAruco();
+    void RequestFinish();
 
-    bool mStopped = false;
-    list<cv::Mat> mlArucoLoadImage;
-    list<cv::Mat> mlArucoShowImage;
+    void RequestStop();
+
+    bool isFinished();
+
+    bool isStopped();
+
+    void Release();
+
+    list<cv::Mat> mlLoadImage;
+    struct ArucoDrawer{
+        vector< int > ids;
+        vector< vector< cv::Point2f > > corners, rejected;
+        vector< cv::Vec3d > rvecs, tvecs;
+        cv::Mat camMatrix, distCoeffs;
+        float markerLength;
+        int estimatePose;
+    }msArucoDrawer;
 
 private:
-
     bool readCameraParameters(const string strArucoSettingFile, cv::Mat &camMatrix, cv::Mat &distCoeffs);
 
     bool readArucoParameters(const string strArucoParamsFile, cv::Ptr<cv::aruco::DetectorParameters> &params);
 
+    bool Stop();
+    bool CheckFinish();
+    void SetFinish();
+
     // Aruco setting parameters
     int dictionaryId;
-    int estimatePose;
-    float markerLength;
-
+    //int estimatePose;
     cv::Ptr<cv::aruco::Dictionary> dictionary;
     cv::Ptr<cv::aruco::DetectorParameters> detectorParams;
-    cv::Mat camMatrix, distCoeffs;
 
+    bool mbFinishRequested;
+    bool mbFinished = false;
+    std::mutex mMutexFinish;
+
+    bool mbStopped = false;
+    bool mbStopRequested;
+    std::mutex mMutexStop;
 
 protected:
 

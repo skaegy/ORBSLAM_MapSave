@@ -94,7 +94,7 @@ void Viewer::Run()
     Twc.SetIdentity();
 
     cv::namedWindow("ORB-SLAM2: Current Frame");
-    cv::namedWindow("aruco");
+    //cv::namedWindow("aruco");
 
     bool bFollow = true;
     bool bLocalizationMode = mbReuse;
@@ -145,14 +145,34 @@ void Viewer::Run()
         pangolin::FinishFrame();
 
         cv::Mat im = mpFrameDrawer->DrawFrame();
-        cv::imshow("ORB-SLAM2: Current Frame",im);
-        cv::waitKey(1);
-        cv::Mat imAruco = mpArucoDetector->DrawAruco();
-        if (imAruco.channels()==3){
-            cv::imshow("aruco", imAruco);
-            cv::waitKey(1);
+        // Draw detected aruco marker on im
+        vector<int> ids;
+        ids = mpArucoDetector->msArucoDrawer.ids;
+        if (ids.size() > 0) {
+            vector<vector<cv::Point2f> > corners, rejected;
+            vector<cv::Vec3d > rvecs, tvecs;
+            cv::Mat camMatrix, distCoeffs;
+            float markerLength;
+            int estimatePose;
+
+            corners = mpArucoDetector->msArucoDrawer.corners;
+            camMatrix = mpArucoDetector->msArucoDrawer.camMatrix;
+            distCoeffs =  mpArucoDetector->msArucoDrawer.distCoeffs;
+            markerLength =  mpArucoDetector->msArucoDrawer.markerLength;
+            rvecs =  mpArucoDetector->msArucoDrawer.rvecs;
+            tvecs =  mpArucoDetector->msArucoDrawer.tvecs;
+            estimatePose =  mpArucoDetector->msArucoDrawer.estimatePose;
+
+            cv::aruco::drawDetectedMarkers(im, corners, ids);
+            for (unsigned int i = 0; i < ids.size(); i++){
+                if (estimatePose){
+                    cv::aruco::drawAxis(im, camMatrix, distCoeffs, rvecs[i], tvecs[i], markerLength * 0.5f);
+                }
+            }
         }
-        //cv::waitKey(mT);
+        cv::imshow("ORB-SLAM2: Current Frame",im);
+
+        cv::waitKey(10);
 
         if(menuReset)
         {

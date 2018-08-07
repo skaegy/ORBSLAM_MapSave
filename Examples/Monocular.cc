@@ -50,11 +50,6 @@ int main()
     if (1 == ReuseMap)
         bReuseMap = true;
 
-    // Create ArucoDetector system.
-    //ORB_SLAM2::ArucoDetector ArucoDetector(strArucoSettingsFile, strArucoParamsFile);
-    //std::thread* mptArucoDetector;
-    //mptArucoDetector = new thread(&ORB_SLAM2::ArucoDetector::Run, &ArucoDetector);
-
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
     ORB_SLAM2::System SLAM(strORBvoc,strCamSet,strArucoParamsFile, ORB_SLAM2::System::MONOCULAR,true, bReuseMap,strMapPath);
 
@@ -78,13 +73,13 @@ while(1)
         SLAM.TrackMonocular(imSlam, 0);
         SLAM.mpArucoDetector->ArucoLoadImage(imAruco, 0);
 
-        //if(SLAM.isShutdown())
-            //break;
+        if(SLAM.isShutdown())
+            break;
     }
     // Stop all threads
-    //SLAM.Shutdown();
+    SLAM.Shutdown();
     // Save camera trajectory
-    //SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
+    SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
 
     return 0;
 }

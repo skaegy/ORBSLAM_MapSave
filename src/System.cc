@@ -473,12 +473,11 @@ void System::Shutdown()
     mpLocalMapper->RequestFinish();
     mpLoopCloser->RequestFinish();
     mpViewer->RequestFinish();
-    //TODO: Shutdown the ArucoDetector thread
-    //mpArucoDetector->RequestFinish();
+    mpArucoDetector->RequestFinish();
 
     // Wait until all thread have effectively stopped
     while(!mpLocalMapper->isFinished() || !mpLoopCloser->isFinished()  ||
-          !mpViewer->isFinished()      || mpLoopCloser->isRunningGBA())
+          !mpViewer->isFinished()      || mpLoopCloser->isRunningGBA() || !mpArucoDetector->isFinished())
     {
         usleep(5000);
     }

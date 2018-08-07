@@ -325,7 +325,17 @@ cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRe
     return mCurrentFrame.mTcw.clone();
 }
 
-
+/**
+  * GrabImageRGBD
+  * Input:
+  *     ImGray
+  *     imDepth
+  *     1) Initialize mCurrentFrame
+  *     2) Tracking
+  * Output:
+  *     Transformation matrix from world coordinate [w] to camera coordinate [c]
+  *     mTcw
+  */
 cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const double &timestamp)
 {
     mImGray = imRGB;
@@ -346,17 +356,30 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const d
             cvtColor(mImGray,mImGray,CV_BGRA2GRAY);
     }
 
+    // 1) Depth image
+    // Disparity to depth
     if(mDepthMapFactor!=1 || imDepth.type()!=CV_32F);
     imDepth.convertTo(imDepth,CV_32F,mDepthMapFactor);
 
+    // 2) Create current frame
+    // Key point, key points matching, depth, coordinates of matching points, divide of key points
     mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
-
+    // 3) Tracking
     Track();
-
+    // Return the mTcw, transformation matrix frow w to c
     return mCurrentFrame.mTcw.clone();
 }
 
-
+/**
+  * GrabImageMonocular
+  * Input:
+  *     mImGray
+  *     1) Initialize mCurrentFrame
+  *     2) Tracking
+  * Output:
+  *     Transformation matrix from world coordinate [w] to camera coordinate [c]
+  *     mTcw
+  */
 cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
 {
     mImGray = im;
@@ -376,11 +399,14 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
             cvtColor(mImGray,mImGray,CV_BGRA2GRAY);
     }
 
+    // 2）Package the current frame as a Frame --> mCurrentFrame object
+    // First frame: mpIniORBextractor, Other frames: mpORBextractorLeft
     if(mState==NOT_INITIALIZED || mState==NO_IMAGES_YET)
         mCurrentFrame = Frame(mImGray,timestamp,mpIniORBextractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
     else
         mCurrentFrame = Frame(mImGray,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
 
+    // 3) Tracking
     Track();
 
     /* Do Pose calculation */
@@ -413,6 +439,71 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
         return mCurrentFrame.mTcw.clone();
 }
 
+/**
+ * Three models in Tracking():
+ *      - Tracking with motion model
+ *      - Tracking with reference key frame
+ *      - Relocalization
+ *  1) Tracking with motion model
+ *      - Aussme object with constant velocity
+ *      - Estimate current pose and position according to the pose and velocity in the last frame
+ *      - Pure translation & less rotation
+ *  2) Tracking with reference key frame
+ *      [*] Tracking with motion model fails
+ *      - Matching with the nearest key frame (map points)
+ *      - BoW for fast matching
+ *      - BoW feature vector of current frame, initial pose as the pose in the last frame
+ *      - Optimize the pose with respect to the matched feature
+ *  3) Relocalization
+ *      -
+
+【3】重定位（Relocalization） 跟踪
+       当前帧 用词典计算 字典单词线性表示向量
+       所有关键帧 用词典计算 字典单词线性表示向量
+
+       计算 当前帧 的字典单词线性表示向量 和 所有关键帧 的 字典单词线性表示向量之间的距离 选取部分距离短的候选关键帧
+       当前帧和 候选关键帧 分别进行描述子 匹配
+
+       	关键帧和 当前帧 均用 字典单词线性表示向量
+        对应单词的 描述子 肯定比较相近 取对应单词的描述子进行匹配可以加速匹配
+
+      假如当前帧与最近邻关键帧的匹配也失败了，意味着此时当前帧已经丢了，无法确定其真实位置。
+      此时，只有去和所有关键帧匹配，看能否找到合适的位置。首先，计算当前帧的Bow向量。
+      其次，利用BoW词典选取若干关键帧作为备选（参见ORB－SLAM（六）回环检测）；
+      再次，寻找有足够多的特征点匹配的关键帧；最后，利用特征点匹配迭代求解位姿（RANSAC框架下，
+      因为相对位姿可能比较大，局外点会比较多）。
+      如果有关键帧有足够多的内点，那么选取该关键帧优化出的位姿。
+　1）优先选择通过恒速运动模型，从LastFrame（上一普通帧）
+　      直接预测出（乘以一个固定的位姿变换矩阵）当前帧的姿态；
+    2）如果是静止状态或者运动模型匹配失效
+	  （运用恒速模型后反投影发现LastFrame的地图点和CurrentFrame的特征点匹配很少），
+	  通过增大参考帧的地图点反投影匹配范围，获取较多匹配后，计算当前位姿；
+    3）若这两者均失败，即代表tracking失败，mState!=OK，
+	  则在KeyFrameDataBase中用Bow搜索CurrentFrame的特征点匹配，
+	  进行全局重定位GlobalRelocalization，在RANSAC框架下使用EPnP求解当前位姿。
+
+      一旦我们通过上面三种模型获取了初始的相机位姿和初始的特征匹配，
+      就可以将完整的地图投影到当前帧中去搜索更多的匹配。但是投影完整的地图，
+      在large scale的场景中是很耗计算而且也没有必要的，
+      因此，这里使用了局部地图LocalMap来进行投影匹配。
+
+LocalMap包含：
+    与当前帧相连的关键帧K1，以及与K1相连的关键帧K2（一级二级相连关键帧）；
+    K1、K2对应的地图点；参考关键帧Kf。
+
+匹配过程如下：
+        对局部地图点
+　　1. 抛弃投影范围超出相机画面的；
+　　2. 抛弃观测视角和地图点平均观测方向相差60o以上的；
+　　3. 抛弃特征点的尺度和地图点的尺度（通过高斯金字塔层数表示）不匹配的；
+　　4. 计算当前帧中特征点的尺度；
+　　5. 将地图点的描述子和当前帧ORB特征的描述子匹配，需要根据地图点尺度在初始位姿获取的粗略x投影位置附近搜索；
+　　6. 根据所有匹配点进行PoseOptimization优化。
+　　
+这三种跟踪模型都是为了获取相机位姿一个粗略的初值，
+后面会通过跟踪局部地图TrackLocalMap对位姿进行BundleAdjustment（捆集调整），
+进一步优化位姿。
+*/
 void Tracking::Track()
 {
     if(mState==NO_IMAGES_YET)
