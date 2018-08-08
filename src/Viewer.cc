@@ -21,6 +21,8 @@
 #include "Viewer.h"
 #include "MapPoint.h"
 #include <pangolin/pangolin.h>
+#include <pangolin/scene/axis.h>
+#include <pangolin/scene/scenehandler.h>
 
 #include <mutex>
 
@@ -75,9 +77,10 @@ void Viewer::Run()
     pangolin::Var<bool> menuSaveMap("menu.Save Map",false,false);
     pangolin::Var<bool> menuReset("menu.Reset",false,false);
     pangolin::Var<bool> menuShutDown("menu.Shut Down",false,false);
-    pangolin::Var<double> showPosX("menu.X", 0);
-    pangolin::Var<double> showPosY("menu.Y", 0);
-    pangolin::Var<double> showPosZ("menu.Z", 0);
+    pangolin::Var<double> showPosX("menu.X(red)", 0);
+    pangolin::Var<double> showPosY("menu.Y(green)", 0);
+    pangolin::Var<double> showPosZ("menu.Z(blue)", 0);
+    pangolin::Var<int> NumberOfAruco("menu.noAruco",0, 0, 6);
 
     // Define Camera Render Object (for view / scene browsing)
     pangolin::OpenGlRenderState s_cam(
@@ -90,11 +93,19 @@ void Viewer::Run()
             .SetBounds(0.0, 1.0, pangolin::Attach::Pix(175), 1.0, -1024.0f/768.0f)
             .SetHandler(new pangolin::Handler3D(s_cam));
 
+    // Add Global coordinate system
+    pangolin::Renderable tree;
+    tree.Add( std::make_shared<pangolin::Axis>() );
+    d_cam.SetDrawFunction([&](pangolin::View& view){
+        view.Activate(s_cam);
+        tree.Render();
+    });
+
+
     pangolin::OpenGlMatrix Twc;
     Twc.SetIdentity();
 
     cv::namedWindow("ORB-SLAM2: Current Frame");
-    //cv::namedWindow("aruco");
 
     bool bFollow = true;
     bool bLocalizationMode = mbReuse;
@@ -102,6 +113,22 @@ void Viewer::Run()
     while(1)
     {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        //Draw the Grid every frame
+        float xmin=-10.0, xmax=10.0, dx=0.5, x;
+        float zmin=-10.0, zmax=10.0, dz=0.5, z;
+        glBegin(GL_LINES);
+        for(x=xmin; x<=xmax; x+=dx)
+        {
+            for(z=zmin; z<=zmax; z+=dz)
+            {
+                glVertex3f(x, 1.0, zmin);
+                glVertex3f(x, 1.0, zmax);
+                glVertex3f(xmin, 1.0, z);
+                glVertex3f(xmax, 1.0, z);
+            }
+        }
+        glEnd();
 
         mpMapDrawer->GetCurrentOpenGLCameraMatrix(Twc);
 
@@ -149,6 +176,7 @@ void Viewer::Run()
         vector<int> ids;
         ids = mpArucoDetector->msArucoDrawer.ids;
         if (ids.size() > 0) {
+            NumberOfAruco = ids.size();
             vector<vector<cv::Point2f> > corners, rejected;
             vector<cv::Vec3d > rvecs, tvecs;
             cv::Mat camMatrix, distCoeffs;
@@ -172,7 +200,7 @@ void Viewer::Run()
         }
         cv::imshow("ORB-SLAM2: Current Frame",im);
 
-        cv::waitKey(10);
+        cv::waitKey(mT);
 
         if(menuReset)
         {

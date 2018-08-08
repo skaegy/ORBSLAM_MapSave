@@ -218,8 +218,6 @@ System::System(const string &strVocFile, const string &strSettingsFile, const st
     mpLoopCloser->SetLocalMapper(mpLocalMapper);
 
     // Link threads (ArucoDetector --> Viewer)
-    // In linux, opencv only can plots multiple "imshow" in one thread
-    // So, we need to transfer the image to viewer
     mpArucoDetector->SetViewer(mpViewer);
 }
 

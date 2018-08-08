@@ -34,8 +34,10 @@ find_package(Pangolin REQUIRED)
 find_package(Boost  1.54.0  	     # Minimum or EXACT version e.g. 1.36.0
   REQUIRED             					# Fail with error if Boost is not found
   COMPONENTS serialization 				# Boost libraries by their canonical name
-  )          
-
+  )
+#set(realsense2_INCLUDE_DIRS "C:\\Program Files (x86)\\Intel RealSense SDK 2.0\\lib\\x64")          # TODO: Update this variable to correct path - folder where realsense2.lib is found
+#set(DLL_DIR "C:\\Program Files (x86)\\Intel RealSense SDK 2.0\\bin\\x64")
+find_package(realsense2 REQUIRED)
 
 #add_subdirectory(Thirdparty/DBoW2)
 
@@ -44,6 +46,7 @@ ${PROJECT_SOURCE_DIR}
 ${PROJECT_SOURCE_DIR}/include
 ${EIGEN3_INCLUDE_DIR}
 ${Pangolin_INCLUDE_DIRS}
+${realsense2_INCLUDE_DIRS}
 )
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
@@ -78,6 +81,7 @@ ${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
 ${Pangolin_LIBRARIES}
 ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
 ${Boost_LIBRARIES}
+${realsense2_LIBRARIES}
 )
 
 # Build examples
@@ -87,8 +91,12 @@ ${Boost_LIBRARIES}
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Monocular)
 
 add_executable(Monocular
-Examples/Monocular.cc)
+Examples/Monocular.cc )
 target_link_libraries(Monocular ${PROJECT_NAME})
+
+add_executable(RGBD
+Examples/RGBD.cpp)
+target_link_libraries(RGBD ${PROJECT_NAME} realsense2)
 
 # Build tools
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/tools)
