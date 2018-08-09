@@ -115,17 +115,18 @@ void Viewer::Run()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         //Draw the Grid every frame
-        float xmin=-10.0, xmax=10.0, dx=0.5, x;
-        float zmin=-10.0, zmax=10.0, dz=0.5, z;
+        float xmin=-20.0, xmax=20.0, dx=0.5;
+        float zmin=-20.0, zmax=20.0, dz=0.5;
         glBegin(GL_LINES);
-        for(x=xmin; x<=xmax; x+=dx)
+        glColor4f(0.1f,0.1f,0.1f,0.3f);
+        for(double gridx=xmin; gridx<=xmax; gridx+=dx)
         {
-            for(z=zmin; z<=zmax; z+=dz)
+            for(double gridz=zmin; gridz<=zmax; gridz+=dz)
             {
-                glVertex3f(x, 1.0, zmin);
-                glVertex3f(x, 1.0, zmax);
-                glVertex3f(xmin, 1.0, z);
-                glVertex3f(xmax, 1.0, z);
+                glVertex3f(gridx, 1.0, zmin);
+                glVertex3f(gridx, 1.0, zmax);
+                glVertex3f(xmin, 1.0, gridz);
+                glVertex3f(xmax, 1.0, gridz);
             }
         }
         glEnd();
@@ -166,13 +167,13 @@ void Viewer::Run()
         if(menuShowPoints)
             mpMapDrawer->DrawMapPoints();
 
-        showPosX=Twc.m[4];
-        showPosY=Twc.m[8];
-        showPosZ=Twc.m[12];
-        pangolin::FinishFrame();
+        showPosX=Twc.m[12];
+        showPosY=Twc.m[13];
+        showPosZ=Twc.m[14];
 
         cv::Mat im = mpFrameDrawer->DrawFrame();
-        // Draw detected aruco marker on im
+
+        // Draw detected aruco markers
         vector<int> ids;
         ids = mpArucoDetector->msArucoDrawer.ids;
         if (ids.size() > 0) {
@@ -191,13 +192,39 @@ void Viewer::Run()
             tvecs =  mpArucoDetector->msArucoDrawer.tvecs;
             estimatePose =  mpArucoDetector->msArucoDrawer.estimatePose;
 
+            // Draw on the 2D image
             cv::aruco::drawDetectedMarkers(im, corners, ids);
             for (unsigned int i = 0; i < ids.size(); i++){
                 if (estimatePose){
                     cv::aruco::drawAxis(im, camMatrix, distCoeffs, rvecs[i], tvecs[i], markerLength * 0.5f);
                 }
             }
+
+            // Draw on the 3D point clound
+            glPointSize(15);
+            glBegin(GL_POINTS);
+            glColor3f(0.2,0.2,0.2);
+            for (unsigned int i=0; i<ids.size(); i++){
+                glVertex3f(Twc.m[12] + tvecs[i][0], Twc.m[13] + tvecs[i][1], Twc.m[14] + tvecs[i][2]);
+            }
+            glEnd();
+
+            glLineWidth(5);
+            glColor3f(0.0,0.0,0.8);
+            glBegin(GL_LINES);
+            for (unsigned int i=0; i<ids.size(); i++){
+                for (unsigned int j=0; j<ids.size(); j++) {
+                    if (abs(ids[i]-ids[j])==2){
+                        glVertex3f(Twc.m[12] + tvecs[i][0], Twc.m[13] + tvecs[i][1], Twc.m[14] + tvecs[i][2]);
+                        glVertex3f(Twc.m[12] + tvecs[j][0], Twc.m[13] + tvecs[j][1], Twc.m[14] + tvecs[j][2]);
+                    }
+                }
+            }
+
+
+            glEnd();
         }
+        pangolin::FinishFrame();
         cv::imshow("ORB-SLAM2: Current Frame",im);
 
         cv::waitKey(mT);
