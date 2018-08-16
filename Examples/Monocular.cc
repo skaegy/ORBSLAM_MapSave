@@ -58,7 +58,8 @@ int main()
 
     // Main loop
     cv::Mat imSlam, imAruco;
-    cv::VideoCapture capture("/dev/video2");
+    //cv::VideoCapture capture("rtsp://127.0.0.1:8554/test");
+    cv::VideoCapture capture("/dev/video3");
 while(1)
     {
         // Read image from file

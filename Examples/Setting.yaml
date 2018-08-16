@@ -10,7 +10,7 @@ Orb_Vocabulary: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Vocabulary/ORBv
 
 # the Camera Setting File Path. 
 
-Cam_Setting: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/ORB_RGBD640x480.yaml
+Cam_Setting: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/ORB_RGB640x480.yaml
 
 # Whether Run the ORB-SLAM2 System Using the Exsiting Map File (0 for no , 1 for yes).
 

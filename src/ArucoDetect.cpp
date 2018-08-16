@@ -3,7 +3,6 @@
 //
 
 #include "ArucoDetect.h"
-#include <opencv2/highgui.hpp>
 #include <opencv2/aruco.hpp>
 #include <iostream>
 #include <thread>

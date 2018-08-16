@@ -5,7 +5,6 @@
 #ifndef ARUCODETECT_H
 #define ARUCODETECT_H
 
-#include <opencv2/highgui.hpp>
 #include <opencv2/aruco.hpp>
 #include <iostream>
 #include <thread>
