@@ -13,9 +13,10 @@ using namespace ORB_SLAM2;
 
 namespace ORB_SLAM2 {
 
-ArucoDetector::ArucoDetector(const string strArucoSettingFile, const string strArucoParamsFile) {
+ArucoDetector::ArucoDetector(const string strArucoSettingFile, const string &strArucoParamsFile) {
     msArucoDrawer.camMatrix = Mat::eye(3, 3, CV_32F);
     msArucoDrawer.distCoeffs = Mat::zeros(5, 1, CV_32F);
+    mbStopped = false;
 
     bool readCPOk = ArucoDetector::readCameraParameters(strArucoSettingFile, msArucoDrawer.camMatrix, msArucoDrawer.distCoeffs);
     if (!readCPOk) {

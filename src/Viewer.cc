@@ -29,8 +29,11 @@
 namespace ORB_SLAM2
 {
 
-Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Tracking *pTracking, ArucoDetector *pArucoDetector, const string &strSettingPath, bool bReuse):
-    mpSystem(pSystem), mpFrameDrawer(pFrameDrawer),mpMapDrawer(pMapDrawer), mpTracker(pTracking),mpArucoDetector(pArucoDetector),
+Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Tracking *pTracking,
+        ArucoDetector *pArucoDetector, OpDetector *pOpDetector,
+        const string &strSettingPath, bool bReuse, bool bHumanPose):
+    mpSystem(pSystem), mpFrameDrawer(pFrameDrawer),mpMapDrawer(pMapDrawer), mpTracker(pTracking),
+    mpArucoDetector(pArucoDetector), mpOpDetector(pOpDetector),
     mbFinishRequested(false), mbFinished(true), mbStopped(false), mbStopRequested(false)
 {
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
@@ -53,6 +56,7 @@ Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer
     mViewpointZ = fSettings["Viewer.ViewpointZ"];
     mViewpointF = fSettings["Viewer.ViewpointF"];
     mbReuse = bReuse;
+    mbHumanPose = bHumanPose;
 }
 
 void Viewer::Run()
@@ -220,14 +224,25 @@ void Viewer::Run()
                     }
                 }
             }
-
-
             glEnd();
         }
+
+        // Draw Human pose
+        if(mbHumanPose){
+           if (mpOpDetector->mlRenderPoseImage.size()>0){
+               cv::Mat OpShow = mpOpDetector->mlRenderPoseImage.back();
+               mpOpDetector->mlRenderPoseImage.pop_back();
+
+               cv::imshow("Openpose", OpShow);
+               cv::waitKey(1);
+           }
+
+        }
+
         pangolin::FinishFrame();
         cv::imshow("ORB-SLAM2: Current Frame",im);
 
-        cv::waitKey(mT);
+        cv::waitKey(mT-5);
 
         if(menuReset)
         {

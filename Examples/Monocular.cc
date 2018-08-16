@@ -38,6 +38,7 @@ int main()
         cerr << "Failed to open setting file at: " << strSettingPath << endl;
         exit(-1);
     }
+    const string videoSoure = fSettings["Video_source"];
     const string strORBvoc = fSettings["Orb_Vocabulary"];
     const string strCamSet = fSettings["Cam_Setting"];
     int ReuseMap = fSettings["is_ReuseMap"];
@@ -45,26 +46,34 @@ int main()
 
     const string strArucoParamsFile = fSettings["Aruco_Parameters"];
     const string strArucoSettingsFile = strCamSet;
+    const string strOpenposeSettingFile = fSettings["Openpose_Parameters"];
+    int HumanPose = fSettings["is_DetectHuman"];
+    fSettings.release();
 
     bool bReuseMap = false;
     if (1 == ReuseMap)
         bReuseMap = true;
+    bool bHumanPose = false;
+    if (1 == HumanPose)
+        bHumanPose = true;
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    ORB_SLAM2::System SLAM(strORBvoc,strCamSet,strArucoParamsFile, ORB_SLAM2::System::MONOCULAR,true, bReuseMap,strMapPath);
+    ORB_SLAM2::System SLAM(strORBvoc, strCamSet, strArucoParamsFile, strOpenposeSettingFile,
+                            ORB_SLAM2::System::MONOCULAR, true, bReuseMap, bHumanPose, strMapPath);
 
     cout << endl << "-------" << endl;
     cout << "Start processing sequence ..." << endl;
 
     // Main loop
-    cv::Mat imSlam, imAruco;
+    cv::Mat imSlam, imAruco, imOP;
     //cv::VideoCapture capture("rtsp://127.0.0.1:8554/test");
-    cv::VideoCapture capture("/dev/video3");
+    cv::VideoCapture capture(videoSoure);
 while(1)
     {
         // Read image from file
         capture >> imSlam;
         imSlam.copyTo(imAruco);
+        imSlam.copyTo(imOP);
         if(imSlam.empty())
         {
             cerr << endl << "Failed to load image!" << endl;
@@ -73,6 +82,7 @@ while(1)
         // Pass the image to the SLAM system
         SLAM.TrackMonocular(imSlam, 0);
         SLAM.mpArucoDetector->ArucoLoadImage(imAruco, 0);
+        SLAM.mpOpDetector->OpLoadImage(imOP, 0);
 
         if(SLAM.isShutdown())
             break;

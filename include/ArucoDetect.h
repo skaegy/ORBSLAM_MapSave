@@ -4,7 +4,7 @@
 
 #ifndef ARUCODETECT_H
 #define ARUCODETECT_H
-
+#include <opencv2/highgui.hpp>
 #include <opencv2/aruco.hpp>
 #include <iostream>
 #include <thread>
@@ -16,10 +16,11 @@ using namespace std;
 
 namespace ORB_SLAM2{
 class System;
+class Viewer;
 
 class ArucoDetector{
 public:
-    ArucoDetector(const string strArucoSettingFile, const string strArucoParamsFile);
+    ArucoDetector(const string strArucoSettingFile, const string &strArucoParamsFile);
 
     void Run();
 
@@ -53,7 +54,9 @@ private:
     bool readArucoParameters(const string strArucoParamsFile, cv::Ptr<cv::aruco::DetectorParameters> &params);
 
     bool Stop();
+
     bool CheckFinish();
+
     void SetFinish();
 
     // Aruco setting parameters

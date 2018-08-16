@@ -82,8 +82,12 @@ namespace ORB_SLAM2
 {
 
 // Initialization --> Vocabulary, setting file, sensor
-System::System(const string &strVocFile, const string &strSettingsFile, const string &strArucoParamsFile, const eSensor sensor,
-               const bool bUseViewer, const bool bReuse, const string &mapFilePath ):mSensor(sensor),mbReset(false),mbActivateLocalizationMode(bReuse),
+System::System(const string &strVocFile, const string &strSettingsFile,
+        const string &strArucoParamsFile, const string &strOpenposeSettingsFile,
+        const eSensor sensor, const bool bUseViewer, const bool bReuse, const bool bHumanPose,
+        const string &mapFilePath ):
+        mSensor(sensor),mbReset(false),
+        mbActivateLocalizationMode(bReuse),
         mbDeactivateLocalizationMode(false)
 {
     // Output welcome message
@@ -178,7 +182,6 @@ System::System(const string &strVocFile, const string &strSettingsFile, const st
     // 4. Create Frame Drawers. These are used by the Viewer
     mpFrameDrawer = new FrameDrawer(mpMap, bReuse); // Show KeyFrames
     mpMapDrawer = new MapDrawer(mpMap, strSettingsFile); // Show Map Points
-    // TODO mpHumanDrawer = new HumanDrawer(mpMap, xxx);
 
     // 5. Initialize the Tracking thread, not launch
     //(it will live in the main thread of execution, the one that called this constructor)
@@ -193,12 +196,17 @@ System::System(const string &strVocFile, const string &strSettingsFile, const st
     mpLoopCloser = new LoopClosing(mpMap, mpKeyFrameDatabase, mpVocabulary, mSensor!=MONOCULAR);
     mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, mpLoopCloser);
 
+    // 8. Initialize the openpose detector thread and launch
+    mpOpDetector = new OpDetector(strOpenposeSettingsFile, bHumanPose);
+    mptOpDetector = new thread(&ORB_SLAM2::OpDetector::Run, mpOpDetector);
+
     // 8. Initialize the ARUCO detector thread and launch
     mpArucoDetector = new ArucoDetector(strSettingsFile, strArucoParamsFile);
     mptArucoDetector = new thread(&ORB_SLAM2::ArucoDetector::Run, mpArucoDetector);
 
     // 9. Initialize the Viewer thread and launch
-    mpViewer = new Viewer(this, mpFrameDrawer,mpMapDrawer,mpTracker, mpArucoDetector, strSettingsFile, bReuse);
+    mpViewer = new Viewer(this, mpFrameDrawer,mpMapDrawer,mpTracker, mpArucoDetector, mpOpDetector,
+            strSettingsFile, bReuse, bHumanPose);
     if(bUseViewer){
         mptViewer = new thread(&Viewer::Run, mpViewer);
     }
@@ -219,6 +227,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const st
 
     // Link threads (ArucoDetector --> Viewer)
     mpArucoDetector->SetViewer(mpViewer);
+    mpOpDetector->SetViewer(mpViewer);
 }
 
 cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp)

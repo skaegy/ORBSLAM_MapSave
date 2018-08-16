@@ -41,6 +41,8 @@
 #include "KeyFrameDatabase.h"
 #include "ORBVocabulary.h"
 #include "Viewer.h"
+#include "ArucoDetect.h"
+#include "DetectHumanPose.h"
 
 namespace ORB_SLAM2
 {
@@ -52,6 +54,7 @@ class Tracking;
 class LocalMapping;
 class LoopClosing;
 class ArucoDetector;
+class OpDetector;
 
 class System
 {
@@ -68,8 +71,10 @@ public:
 	friend class boost::serialization::access;
 
     // Initialize the SLAM system. It launches the Local Mapping, Loop Closing and Viewer threads.
-    System(const string &strVocFile, const string &strSettingsFile, const string &strArucoParamsFile, const eSensor sensor,
-            const bool bUseViewer = true, const bool reuse= false, const string & mapFilePath = "");
+    System(const string &strVocFile, const string &strSettingsFile,
+            const string &strArucoParamsFile, const string &strOpenposeSettingsFile, const eSensor sensor,
+            const bool bUseViewer = true, const bool reuse= false, const bool bHumanPose=true,
+            const string & mapFilePath = "");
 
     // Proccess the given stereo frame. Images must be synchronized and rectified.
     // Input images: RGB (CV_8UC3) or grayscale (CV_8U). RGB is converted to grayscale.
@@ -136,6 +141,7 @@ public:
     // ARUCO marker detector. It detect the aruco marker in the rgb image and calculate the distance and relative poistion
     // between the camera and the detected marker.
     ArucoDetector* mpArucoDetector;
+    OpDetector* mpOpDetector;
 private:
 
     // Input sensor
@@ -182,6 +188,7 @@ private:
     std::thread* mptLoopClosing;  // Pointer of loop closing thread
     std::thread* mptViewer;       // Pointer of Viewer thread
     std::thread* mptArucoDetector;// Pointer of ARUCO marker detect thread
+    std::thread* mptOpDetector;   // Pointer of Openpose detect thread
 
     // Thread Reset flag
     std::mutex mMutexReset;

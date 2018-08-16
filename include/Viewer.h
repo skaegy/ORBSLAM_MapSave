@@ -27,6 +27,7 @@
 #include "Tracking.h"
 #include "System.h"
 #include "ArucoDetect.h"
+#include "DetectHumanPose.h"
 
 #include <mutex>
 
@@ -38,12 +39,14 @@ class FrameDrawer;
 class MapDrawer;
 class System;
 class ArucoDetector;
+class OpDetector;
 
 class Viewer
 {
 public:
-    Viewer(System* pSystem, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer, Tracking *pTracking, ArucoDetector* pArucoDetector,
-            const string &strSettingPath, bool bReuse);
+    Viewer(System* pSystem, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer, Tracking *pTracking,
+            ArucoDetector* pArucoDetector, OpDetector* pDetector,
+            const string &strSettingPath, bool bReuse, bool bHumanPose);
     // Main thread function. Draw points, keyframes, the current camera pose and the last processed
     // frame. Drawing is refreshed according to the camera fps. We use Pangolin.
     void Run();
@@ -62,11 +65,13 @@ private:
 
     bool Stop();
 	bool mbReuse;
+	bool mbHumanPose;
     System* mpSystem;
     FrameDrawer* mpFrameDrawer;
     MapDrawer* mpMapDrawer;
     Tracking* mpTracker;
     ArucoDetector* mpArucoDetector;
+    OpDetector* mpOpDetector;
 
     // 1/fps in ms
     double mT;
