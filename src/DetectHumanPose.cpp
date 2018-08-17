@@ -10,7 +10,8 @@ using namespace ORB_SLAM2;
 namespace ORB_SLAM2 {
 
 OpDetector::OpDetector(const string &strOpenposeSettingsFile, const bool bHumanPose){
-    if (bHumanPose){
+    mbHumanPose = bHumanPose;
+    //if (mbHumanPose){
         cv::FileStorage fs(strOpenposeSettingsFile, cv::FileStorage::READ);
         if (!fs.isOpened()) {
             cerr << "Unable to open openpose parameter file!" << endl;
@@ -36,73 +37,94 @@ OpDetector::OpDetector(const string &strOpenposeSettingsFile, const bool bHumanP
         const int output_resolution_col = fs["output_resolution_col"];
         output_resolution = to_string(output_resolution_row)+"x"+to_string(output_resolution_col);
         fs.release();
-    }
+
+    //}
 }
 
 void OpDetector::Run() {
-
-    // ------------------------- INITIALIZATION -------------------------
-    // Step 1 - Set logging level
-    // - 0 will output all the logging messages
-    // - 255 will output nothing
-    op::check(0 <= logging_level && logging_level <= 255, "Wrong logging_level value.",
-              __LINE__, __FUNCTION__, __FILE__);
-    op::ConfigureLog::setPriorityThreshold((op::Priority)logging_level);
-    op::log("", op::Priority::Low, __LINE__, __FUNCTION__, __FILE__);
-    // Step 2 - Read Google flags (user defined configuration)
-    // outputSize
-    const auto outputSize = op::flagsToPoint(output_resolution, "-1x-1");
-    // netInputSize
-    const auto netInputSize = op::flagsToPoint(net_resolution, "-1x368");
-    // poseModel
-    const auto poseModel = op::flagsToPoseModel(model_pose);
-    //double lastTimeSec = 0.0;
-    // Check no contradictory flags enabled
-    if (alpha_pose < 0. || alpha_pose > 1.)
-        op::error("Alpha value for blending must be in the range [0,1].", __LINE__, __FUNCTION__, __FILE__);
-    if (scale_gap <= 0. && scale_gap > 1)
-        op::error("Incompatible flag configuration: scale_gap must be greater than 0 or scale_number = 1.",
+    //if (mbHumanPose) {
+        const auto timerBegin = std::chrono::high_resolution_clock::now();
+        double lastTimeSec = 0.0;
+        // ------------------------- INITIALIZATION -------------------------
+        // Step 1 - Set logging level
+        // - 0 will output all the logging messages
+        // - 255 will output nothing
+        op::check(0 <= logging_level && logging_level <= 255, "Wrong logging_level value.",
                   __LINE__, __FUNCTION__, __FILE__);
-    // Logging
-    op::log("", op::Priority::Low, __LINE__, __FUNCTION__, __FILE__);
-    // Step 3 - Initialize all required classes
-    op::ScaleAndSizeExtractor scaleAndSizeExtractor(netInputSize, outputSize, scale_number, scale_gap);
-    op::CvMatToOpInput cvMatToOpInput{poseModel};
-    op::CvMatToOpOutput cvMatToOpOutput;
-    op::PoseExtractorCaffe poseExtractorCaffe{poseModel, model_folder, num_gpu_start};
-    op::PoseCpuRenderer poseRenderer{poseModel, (float)render_threshold, true, (float)alpha_pose};
-    op::OpOutputToCvMat opOutputToCvMat;
-    // Step 4 - Initialize resources on desired thread (in this case single thread, i.e. we init resources here)
-    poseExtractorCaffe.initializationOnThread();
-    poseRenderer.initializationOnThread();
+        op::ConfigureLog::setPriorityThreshold((op::Priority) logging_level);
+        op::log("", op::Priority::Low, __LINE__, __FUNCTION__, __FILE__);
+        // Step 2 - Read Google flags (user defined configuration)
+        // outputSize
+        const auto outputSize = op::flagsToPoint(output_resolution, "-1x-1");
+        // netInputSize
+        const auto netInputSize = op::flagsToPoint(net_resolution, "-1x368");
+        // poseModel
+        const auto poseModel = op::flagsToPoseModel(model_pose);
+        //double lastTimeSec = 0.0;
+        // Check no contradictory flags enabled
+        if (alpha_pose < 0. || alpha_pose > 1.)
+            op::error("Alpha value for blending must be in the range [0,1].", __LINE__, __FUNCTION__, __FILE__);
+        if (scale_gap <= 0. && scale_gap > 1)
+            op::error("Incompatible flag configuration: scale_gap must be greater than 0 or scale_number = 1.",
+                      __LINE__, __FUNCTION__, __FILE__);
+        // Logging
+        op::log("", op::Priority::Low, __LINE__, __FUNCTION__, __FILE__);
+        // Step 3 - Initialize all required classes
+        op::ScaleAndSizeExtractor scaleAndSizeExtractor(netInputSize, outputSize, scale_number, scale_gap);
+        op::CvMatToOpInput cvMatToOpInput{poseModel};
+        op::CvMatToOpOutput cvMatToOpOutput;
+        op::PoseExtractorCaffe poseExtractorCaffe{poseModel, model_folder, num_gpu_start};
+        op::PoseCpuRenderer poseRenderer{poseModel, (float) render_threshold, true, (float) alpha_pose};
+        op::OpOutputToCvMat opOutputToCvMat;
+        // Step 4 - Initialize resources on desired thread (in this case single thread, i.e. we init resources here)
+        poseExtractorCaffe.initializationOnThread();
+        poseRenderer.initializationOnThread();
 
-    while (!mbStopped) {
-        if (mlLoadImage.size()>0)
-        {
-            cv::Mat inputImage = mlLoadImage.back();
-            mlLoadImage.pop_back();
+        const auto now = std::chrono::high_resolution_clock::now();
+        const auto totalTimeSec =
+                (double) std::chrono::duration_cast<std::chrono::nanoseconds>(now - timerBegin).count()
+                * 1e-9;
+        const auto message = "OpenPose demo successfully finished. Total time: "
+                             + std::to_string(totalTimeSec - lastTimeSec) + " seconds.";
+        op::log(message, op::Priority::High);
+        OpStandBy = true;
 
-            const op::Point<int> imageSize{inputImage.cols, inputImage.rows};
-            // Step 2 - Get desired scale sizes
-            std::vector<double> scaleInputToNetInputs;
-            std::vector<op::Point<int>> netInputSizes;
-            double scaleInputToOutput;
-            op::Point<int> outputResolution;
-            std::tie(scaleInputToNetInputs, netInputSizes, scaleInputToOutput, outputResolution)
-                    = scaleAndSizeExtractor.extract(imageSize);
-            // Step 3 - Format input image to OpenPose input and output formats
-            const auto netInputArray = cvMatToOpInput.createArray(inputImage, scaleInputToNetInputs, netInputSizes);
-            auto outputArray = cvMatToOpOutput.createArray(inputImage, scaleInputToOutput, outputResolution);
-            // Step 4 - Estimate poseKeypoints
-            poseExtractorCaffe.forwardPass(netInputArray, imageSize, scaleInputToNetInputs);
-            const auto poseKeypoints = poseExtractorCaffe.getPoseKeypoints();
-            // Step 5 - Render poseKeypoints
-            poseRenderer.renderPose(outputArray, poseKeypoints, scaleInputToOutput);
-            // Step 6 - OpenPose output format to cv::Mat
-            auto OutputImage = opOutputToCvMat.formatToCvMat(outputArray);
-            mlRenderPoseImage.push_front(OutputImage);
+        while (!mbStopped && mbHumanPose) {
+            if (mlLoadImage.size() > 0) {
+                cv::Mat inputImage = mlLoadImage.front();
+                mlLoadImage.pop_front();
+                //inputImage.release();
+                //if(mmLoadIm.rows>0)
+                //{
+                //cv::Mat inputImage;
+                //mmLoadIm.copyTo(inputImage);
+                //mmLoadIm.release();
+                const op::Point<int> imageSize{inputImage.cols, inputImage.rows};
+                // Step 2 - Get desired scale sizes
+                std::vector<double> scaleInputToNetInputs;
+                std::vector<op::Point<int>> netInputSizes;
+                double scaleInputToOutput;
+                op::Point<int> outputResolution;
+                std::tie(scaleInputToNetInputs, netInputSizes, scaleInputToOutput, outputResolution)
+                        = scaleAndSizeExtractor.extract(imageSize);
+                // Step 3 - Format input image to OpenPose input and output formats
+                const auto netInputArray = cvMatToOpInput.createArray(inputImage, scaleInputToNetInputs, netInputSizes);
+                auto outputArray = cvMatToOpOutput.createArray(inputImage, scaleInputToOutput, outputResolution);
+                // Step 4 - Estimate poseKeypoints
+                poseExtractorCaffe.forwardPass(netInputArray, imageSize, scaleInputToNetInputs);
+                const auto poseKeypoints = poseExtractorCaffe.getPoseKeypoints();
+                // Step 5 - Render poseKeypoints
+                poseRenderer.renderPose(outputArray, poseKeypoints, scaleInputToOutput);
+                // Step 6 - OpenPose output format to cv::Mat
+                auto OutputImage = opOutputToCvMat.formatToCvMat(outputArray);
+                if (mlRenderPoseImage.size() > 0)
+                    mlRenderPoseImage.pop_front();
+                //OutputImage.copyTo(mmOutputIm);
+                mlRenderPoseImage.push_front(OutputImage);
+            }
         }
-    }
+    //}
+    //cout << "No human pose output" << endl;
 }
 
 void OpDetector::SetViewer(ORB_SLAM2::Viewer *pViewer) {
@@ -112,6 +134,8 @@ void OpDetector::SetViewer(ORB_SLAM2::Viewer *pViewer) {
 void OpDetector::OpLoadImage(const cv::Mat &im, const double &timestamp) {
     cv::Mat BufMat;
     im.copyTo(BufMat);
+    if (mlLoadImage.size()>0)
+        mlLoadImage.pop_front();
     mlLoadImage.push_front(BufMat);
 }
 

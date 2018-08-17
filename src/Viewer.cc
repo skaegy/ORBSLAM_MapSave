@@ -230,19 +230,16 @@ void Viewer::Run()
         // Draw Human pose
         if(mbHumanPose){
            if (mpOpDetector->mlRenderPoseImage.size()>0){
-               cv::Mat OpShow = mpOpDetector->mlRenderPoseImage.back();
-               mpOpDetector->mlRenderPoseImage.pop_back();
-
+               cv::Mat OpShow = mpOpDetector->mlRenderPoseImage.front();
+               mpOpDetector->mlRenderPoseImage.pop_front();
                cv::imshow("Openpose", OpShow);
                cv::waitKey(1);
            }
-
         }
 
         pangolin::FinishFrame();
         cv::imshow("ORB-SLAM2: Current Frame",im);
-
-        cv::waitKey(mT-5);
+        cv::waitKey(mT - 5);
 
         if(menuReset)
         {

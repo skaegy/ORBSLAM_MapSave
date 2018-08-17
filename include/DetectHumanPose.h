@@ -48,6 +48,7 @@ public:
 
     list<cv::Mat> mlLoadImage;
     list<cv::Mat> mlRenderPoseImage;
+    bool OpStandBy = false;
 
 private:
     bool Stop();
@@ -61,6 +62,7 @@ private:
     double scale_gap, render_threshold, alpha_pose;
     string model_pose, model_folder, net_resolution, output_resolution;
 
+
     bool mbFinishRequested;
     bool mbFinished = false;
     std::mutex mMutexFinish;
@@ -68,6 +70,8 @@ private:
     bool mbStopped = false;
     bool mbStopRequested;
     std::mutex mMutexStop;
+
+    bool mbHumanPose = true;
 
 protected:
     std::mutex mMutexOp;

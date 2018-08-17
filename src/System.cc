@@ -196,7 +196,7 @@ System::System(const string &strVocFile, const string &strSettingsFile,
     mpLoopCloser = new LoopClosing(mpMap, mpKeyFrameDatabase, mpVocabulary, mSensor!=MONOCULAR);
     mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, mpLoopCloser);
 
-    // 8. Initialize the openpose detector thread and launch
+    // 0. Initialize the openpose detector thread and launch
     mpOpDetector = new OpDetector(strOpenposeSettingsFile, bHumanPose);
     mptOpDetector = new thread(&ORB_SLAM2::OpDetector::Run, mpOpDetector);
 

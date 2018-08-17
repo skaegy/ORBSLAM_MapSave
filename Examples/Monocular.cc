@@ -23,15 +23,14 @@
 #include <vector>
 #include <list>
 #include <thread>
-#include<opencv2/core/core.hpp>
-#include"System.h"
-#include"ArucoDetect.h"
+#include <opencv2/core/core.hpp>
+#include "System.h"
 
 using namespace std;
 
 int main()
 {
-    const string &strSettingPath = "/home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/Setting.yaml";
+    const string &strSettingPath = "../Setting.yaml";
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
     if(!fSettings.isOpened())
     {
@@ -66,31 +65,42 @@ int main()
 
     // Main loop
     cv::Mat imSlam, imAruco, imOP;
-    //cv::VideoCapture capture("rtsp://127.0.0.1:8554/test");
     cv::VideoCapture capture(videoSoure);
-while(1)
-    {
-        // Read image from file
-        capture >> imSlam;
-        imSlam.copyTo(imAruco);
-        imSlam.copyTo(imOP);
-        if(imSlam.empty())
-        {
-            cerr << endl << "Failed to load image!" << endl;
-            return 1;
-        }
-        // Pass the image to the SLAM system
-        SLAM.TrackMonocular(imSlam, 0);
-        SLAM.mpArucoDetector->ArucoLoadImage(imAruco, 0);
-        SLAM.mpOpDetector->OpLoadImage(imOP, 0);
+    capture.set(CV_CAP_PROP_FPS, 15);
+    bool OpStandBy;
 
-        if(SLAM.isShutdown())
-            break;
+while(1){
+    if (!OpStandBy)
+        OpStandBy = SLAM.mpOpDetector->OpStandBy;
+    if (OpStandBy){
+        if (capture.grab()){
+            // Read image from file
+            capture.retrieve(imSlam, 0);
+            //capture >> imSlam;
+            imSlam.copyTo(imAruco);
+            imSlam.copyTo(imOP);
+            if(imSlam.empty())
+            {
+                cerr << endl << "Failed to load image!" << endl;
+                return 1;
+            }
+
+            // Pass the image to the SLAM system
+            SLAM.TrackMonocular(imSlam, 0);
+            // Pass the image to ARUCO marker detection system
+            SLAM.mpArucoDetector->ArucoLoadImage(imAruco, 0);
+            // Pass the image to Openpose system
+            SLAM.mpOpDetector->OpLoadImage(imOP, 0);
+
+            if(SLAM.isShutdown())
+                break;
+        }
     }
+}
     // Stop all threads
     SLAM.Shutdown();
     // Save camera trajectory
-    SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
+    //SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
 
     return 0;
 }

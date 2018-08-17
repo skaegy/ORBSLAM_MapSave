@@ -36,8 +36,8 @@ void ArucoDetector::Run() {
     while (!mbStopped) {
         if (mlLoadImage.size()>0)
         {
-            cv::Mat BufMat = mlLoadImage.back();
-            mlLoadImage.pop_back();
+            cv::Mat BufMat = mlLoadImage.front();
+            mlLoadImage.pop_front();
             aruco::detectMarkers(BufMat, dictionary, msArucoDrawer.corners, msArucoDrawer.ids, detectorParams, msArucoDrawer.rejected);
             if (msArucoDrawer.estimatePose && msArucoDrawer.ids.size() > 0) {
                 aruco::estimatePoseSingleMarkers(msArucoDrawer.corners, msArucoDrawer.markerLength, msArucoDrawer.camMatrix,

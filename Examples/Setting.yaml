@@ -1,9 +1,12 @@
 %YAML:1.0
 
 #--------------------------------------------------------------------------------------------
-# The Settings of ORB-SLAM2 Monocular. Adjust them!
+# The Settings of ORB_SLAM & Human pose tracking. Adjust them!
 #--------------------------------------------------------------------------------------------
-# Source of video (/dev/video*) (ip camera) (etc.)
+
+# Source of video
+# "rtsp://127.0.0.1:8554/test"
+# /dev/video3
 
 Video_source: /dev/video3
 
@@ -13,26 +16,27 @@ Orb_Vocabulary: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Vocabulary/ORBv
 
 # the Camera Setting File Path. 
 
-Cam_Setting: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/ORB_RGB640x480.yaml
+Cam_Setting: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/ORB_RGBD640x480.yaml
 
 # Whether Run the ORB-SLAM2 System Using the Exsiting Map File (0 for no , 1 for yes).
 
-is_ReuseMap: 1
+is_ReuseMap: 0
 
 # the Exsiting Map File Path (if the above item is 0, this is unnessesary)
 
 ReuseMap: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/Monocular/Slam_latest_Map.bin
 
-# the Aruco Parameters File Path
+# Whether detect human pose (0 for no, 1 for yes)
 
-Aruco_Parameters: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/detector_params.yml
+is_DetectHuman: 1
 
 # the Openpose parameters File Path
 
 Openpose_Parameters: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/Openpose_params.yml
 
-# Whether detect human pose (0 for no, 1 for yes)
+# the Aruco Parameters File Path
 
-is_DetectHuman: 1
+Aruco_Parameters: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/detector_params.yml
+
 
 
