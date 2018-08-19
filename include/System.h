@@ -73,7 +73,7 @@ public:
     // Initialize the SLAM system. It launches the Local Mapping, Loop Closing and Viewer threads.
     System(const string &strVocFile, const string &strSettingsFile,
             const string &strArucoParamsFile, const string &strOpenposeSettingsFile, const eSensor sensor,
-            const bool bUseViewer = true, const bool reuse= false, const bool bHumanPose=true,
+            const bool bUseViewer = true, const bool reuse= false, const bool bHumanPose=false, const bool bARUCODetect=false,
             const string & mapFilePath = "");
 
     // Proccess the given stereo frame. Images must be synchronized and rectified.
@@ -193,7 +193,6 @@ private:
     // Thread Reset flag
     std::mutex mMutexReset;
     bool mbReset;
-
     bool mbShutdown = false;
 
     // Change mode flags
@@ -205,6 +204,7 @@ private:
     bool mbDeactivateLocalizationMode;
     bool mbActivateArucoDetectionMode;
     bool mbDeactivateArucoDetectionMode;
+
 };
 
 }// namespace ORB_SLAM

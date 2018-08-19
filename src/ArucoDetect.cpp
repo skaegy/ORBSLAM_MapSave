@@ -30,11 +30,12 @@ ArucoDetector::ArucoDetector(const string strArucoSettingFile, const string &str
     }
 
     dictionary = aruco::getPredefinedDictionary(aruco::PREDEFINED_DICTIONARY_NAME(dictionaryId));
+    ArucoStandBy = true;
 }
 
 void ArucoDetector::Run() {
     while (!mbStopped) {
-        if (mlLoadImage.size()>0)
+        if (ArucoStandBy && mlLoadImage.size()>0)
         {
             cv::Mat BufMat = mlLoadImage.front();
             mlLoadImage.pop_front();
@@ -47,8 +48,7 @@ void ArucoDetector::Run() {
     }
 }
 
-bool
-ArucoDetector::readCameraParameters(const string strArucoSettingFile, cv::Mat &camMatrix, cv::Mat &distCoeffs) {
+bool ArucoDetector::readCameraParameters(const string strArucoSettingFile, cv::Mat &camMatrix, cv::Mat &distCoeffs) {
     FileStorage fs(strArucoSettingFile, FileStorage::READ);
     if (!fs.isOpened())
         return false;

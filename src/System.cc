@@ -84,7 +84,7 @@ namespace ORB_SLAM2
 // Initialization --> Vocabulary, setting file, sensor
 System::System(const string &strVocFile, const string &strSettingsFile,
         const string &strArucoParamsFile, const string &strOpenposeSettingsFile,
-        const eSensor sensor, const bool bUseViewer, const bool bReuse, const bool bHumanPose,
+        const eSensor sensor, const bool bUseViewer, const bool bReuse, const bool bHumanPose, const bool bARUCODetect,
         const string &mapFilePath ):
         mSensor(sensor),mbReset(false),
         mbActivateLocalizationMode(bReuse),
@@ -198,18 +198,21 @@ System::System(const string &strVocFile, const string &strSettingsFile,
 
     // 0. Initialize the openpose detector thread and launch
     mpOpDetector = new OpDetector(strOpenposeSettingsFile, bHumanPose);
-    mptOpDetector = new thread(&ORB_SLAM2::OpDetector::Run, mpOpDetector);
+    if (bHumanPose)
+        mptOpDetector = new thread(&ORB_SLAM2::OpDetector::Run, mpOpDetector);
+
 
     // 8. Initialize the ARUCO detector thread and launch
     mpArucoDetector = new ArucoDetector(strSettingsFile, strArucoParamsFile);
-    mptArucoDetector = new thread(&ORB_SLAM2::ArucoDetector::Run, mpArucoDetector);
+    if (bARUCODetect)
+        mptArucoDetector = new thread(&ORB_SLAM2::ArucoDetector::Run, mpArucoDetector);
 
     // 9. Initialize the Viewer thread and launch
     mpViewer = new Viewer(this, mpFrameDrawer,mpMapDrawer,mpTracker, mpArucoDetector, mpOpDetector,
-            strSettingsFile, bReuse, bHumanPose);
-    if(bUseViewer){
+            strSettingsFile, bReuse, bHumanPose, bARUCODetect);
+    if(bUseViewer)
         mptViewer = new thread(&Viewer::Run, mpViewer);
-    }
+
     mpTracker->SetViewer(mpViewer);
 
     // 10. Set pointers between threads

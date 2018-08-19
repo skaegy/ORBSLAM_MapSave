@@ -89,8 +89,8 @@ void OpDetector::Run() {
         op::log(message, op::Priority::High);
         OpStandBy = true;
 
-        while (!mbStopped && mbHumanPose) {
-            if (mlLoadImage.size() > 0) {
+        while (!mbStopped ) {
+            if (mbHumanPose && mlLoadImage.size() > 0) {
                 cv::Mat inputImage = mlLoadImage.front();
                 mlLoadImage.pop_front();
                 //inputImage.release();

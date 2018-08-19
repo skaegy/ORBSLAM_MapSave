@@ -39,6 +39,7 @@ public:
     void Release();
 
     list<cv::Mat> mlLoadImage;
+    bool ArucoStandBy = false;
     struct ArucoDrawer{
         vector< int > ids;
         vector< vector< cv::Point2f > > corners, rejected;

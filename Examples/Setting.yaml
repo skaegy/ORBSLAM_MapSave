@@ -6,9 +6,10 @@
 
 # Source of video
 # "rtsp://127.0.0.1:8554/test"
+# "rtmp://localhost/myapp/mystream"
 # /dev/video3
 
-Video_source: /dev/video3
+Video_source: "rtsp://127.0.0.1:8554/test"
 
 # the Orb Vocabulary File Path. Either .bin File or .txt File is Ok.
   
@@ -16,7 +17,7 @@ Orb_Vocabulary: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Vocabulary/ORBv
 
 # the Camera Setting File Path. 
 
-Cam_Setting: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/ORB_RGBD640x480.yaml
+Cam_Setting: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/ORB_RGB640x480.yaml
 
 # Whether Run the ORB-SLAM2 System Using the Exsiting Map File (0 for no , 1 for yes).
 
@@ -28,11 +29,15 @@ ReuseMap: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/Monocular/Sl
 
 # Whether detect human pose (0 for no, 1 for yes)
 
-is_DetectHuman: 1
+is_DetectHuman: 0
 
 # the Openpose parameters File Path
 
 Openpose_Parameters: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/Openpose_params.yml
+
+# Whether detect ARUCO marker (0 for no, 1 for yes)
+
+is_DetectMarker: 0
 
 # the Aruco Parameters File Path
 

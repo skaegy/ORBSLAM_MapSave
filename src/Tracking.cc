@@ -435,7 +435,7 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
         cv::Mat Tcw = Tcr*Trw;
         return Tcw.clone();
     }
-    else 
+    else
         return mCurrentFrame.mTcw.clone();
 }
 
@@ -813,7 +813,6 @@ void Tracking::StereoInitialization()
 
 void Tracking::MonocularInitialization()
 {
-
     if(!mpInitializer)
     {
         // Set Reference Frame
@@ -892,7 +891,6 @@ void Tracking::MonocularInitialization()
 
 void Tracking::CreateInitialMapMonocular()
 {
-
     cout << __FUNCTION__ << ": Starting Initial Map Creation..." << endl;
     // Create KeyFrames
     KeyFrame* pKFini = new KeyFrame(mInitialFrame,mpMap,mpKeyFrameDB);

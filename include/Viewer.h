@@ -46,7 +46,7 @@ class Viewer
 public:
     Viewer(System* pSystem, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer, Tracking *pTracking,
             ArucoDetector* pArucoDetector, OpDetector* pDetector,
-            const string &strSettingPath, bool bReuse, bool bHumanPose);
+            const string &strSettingPath, const bool bReuse, const bool bHumanPose, const bool bARUCODetect);
     // Main thread function. Draw points, keyframes, the current camera pose and the last processed
     // frame. Drawing is refreshed according to the camera fps. We use Pangolin.
     void Run();
@@ -66,6 +66,7 @@ private:
     bool Stop();
 	bool mbReuse;
 	bool mbHumanPose;
+	bool mbARUCODetect;
     System* mpSystem;
     FrameDrawer* mpFrameDrawer;
     MapDrawer* mpMapDrawer;

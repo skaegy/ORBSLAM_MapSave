@@ -31,7 +31,7 @@ namespace ORB_SLAM2
 
 Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Tracking *pTracking,
         ArucoDetector *pArucoDetector, OpDetector *pOpDetector,
-        const string &strSettingPath, bool bReuse, bool bHumanPose):
+        const string &strSettingPath, const bool bReuse, const bool bHumanPose, const bool bARUCODetect):
     mpSystem(pSystem), mpFrameDrawer(pFrameDrawer),mpMapDrawer(pMapDrawer), mpTracker(pTracking),
     mpArucoDetector(pArucoDetector), mpOpDetector(pOpDetector),
     mbFinishRequested(false), mbFinished(true), mbStopped(false), mbStopRequested(false)
@@ -57,6 +57,7 @@ Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer
     mViewpointF = fSettings["Viewer.ViewpointF"];
     mbReuse = bReuse;
     mbHumanPose = bHumanPose;
+    mbARUCODetect = bARUCODetect;
 }
 
 void Viewer::Run()
@@ -113,7 +114,6 @@ void Viewer::Run()
 
     bool bFollow = true;
     bool bLocalizationMode = mbReuse;
-
     while(1)
     {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -178,54 +178,59 @@ void Viewer::Run()
         cv::Mat im = mpFrameDrawer->DrawFrame();
 
         // Draw detected aruco markers
-        vector<int> ids;
-        ids = mpArucoDetector->msArucoDrawer.ids;
-        if (ids.size() > 0) {
-            NumberOfAruco = ids.size();
-            vector<vector<cv::Point2f> > corners, rejected;
-            vector<cv::Vec3d > rvecs, tvecs;
-            cv::Mat camMatrix, distCoeffs;
-            float markerLength;
-            int estimatePose;
+        if (mbARUCODetect){
+            vector<int> ids;
+            ids = mpArucoDetector->msArucoDrawer.ids;
+            if (ids.size() > 0) {
+                NumberOfAruco = ids.size();
+                vector<vector<cv::Point2f> > corners, rejected;
+                vector<cv::Vec3d > rvecs, tvecs;
+                cv::Mat camMatrix, distCoeffs;
+                float markerLength;
+                int estimatePose;
 
-            corners = mpArucoDetector->msArucoDrawer.corners;
-            camMatrix = mpArucoDetector->msArucoDrawer.camMatrix;
-            distCoeffs =  mpArucoDetector->msArucoDrawer.distCoeffs;
-            markerLength =  mpArucoDetector->msArucoDrawer.markerLength;
-            rvecs =  mpArucoDetector->msArucoDrawer.rvecs;
-            tvecs =  mpArucoDetector->msArucoDrawer.tvecs;
-            estimatePose =  mpArucoDetector->msArucoDrawer.estimatePose;
+                corners = mpArucoDetector->msArucoDrawer.corners;
+                camMatrix = mpArucoDetector->msArucoDrawer.camMatrix;
+                distCoeffs =  mpArucoDetector->msArucoDrawer.distCoeffs;
+                markerLength =  mpArucoDetector->msArucoDrawer.markerLength;
+                rvecs =  mpArucoDetector->msArucoDrawer.rvecs;
+                tvecs =  mpArucoDetector->msArucoDrawer.tvecs;
+                estimatePose =  mpArucoDetector->msArucoDrawer.estimatePose;
 
-            // Draw on the 2D image
-            cv::aruco::drawDetectedMarkers(im, corners, ids);
-            for (unsigned int i = 0; i < ids.size(); i++){
-                if (estimatePose){
-                    cv::aruco::drawAxis(im, camMatrix, distCoeffs, rvecs[i], tvecs[i], markerLength * 0.5f);
-                }
-            }
-
-            // Draw on the 3D point clound
-            glPointSize(15);
-            glBegin(GL_POINTS);
-            glColor3f(0.2,0.2,0.2);
-            for (unsigned int i=0; i<ids.size(); i++){
-                glVertex3f(Twc.m[12] + tvecs[i][0], Twc.m[13] + tvecs[i][1], Twc.m[14] + tvecs[i][2]);
-            }
-            glEnd();
-
-            glLineWidth(5);
-            glColor3f(0.0,0.0,0.8);
-            glBegin(GL_LINES);
-            for (unsigned int i=0; i<ids.size(); i++){
-                for (unsigned int j=0; j<ids.size(); j++) {
-                    if (abs(ids[i]-ids[j])==2){
-                        glVertex3f(Twc.m[12] + tvecs[i][0], Twc.m[13] + tvecs[i][1], Twc.m[14] + tvecs[i][2]);
-                        glVertex3f(Twc.m[12] + tvecs[j][0], Twc.m[13] + tvecs[j][1], Twc.m[14] + tvecs[j][2]);
+                // Draw on the 2D image
+                cv::aruco::drawDetectedMarkers(im, corners, ids);
+                for (unsigned int i = 0; i < ids.size(); i++){
+                    if (estimatePose){
+                        cv::aruco::drawAxis(im, camMatrix, distCoeffs, rvecs[i], tvecs[i], markerLength * 0.5f);
                     }
                 }
+
+                // Draw on the 3D point clound
+                glPointSize(15);
+                glBegin(GL_POINTS);
+                glColor3f(0.2,0.2,0.2);
+                for (unsigned int i=0; i<ids.size(); i++){
+                    glVertex3f(Twc.m[12] + tvecs[i][0], Twc.m[13] + tvecs[i][1], Twc.m[14] + tvecs[i][2]);
+                }
+                glEnd();
+
+                glLineWidth(5);
+                glColor3f(0.0,0.0,0.8);
+                glBegin(GL_LINES);
+                for (unsigned int i=0; i<ids.size(); i++){
+                    for (unsigned int j=0; j<ids.size(); j++) {
+                        if (abs(ids[i]-ids[j])==2){
+                            glVertex3f(Twc.m[12] + tvecs[i][0], Twc.m[13] + tvecs[i][1], Twc.m[14] + tvecs[i][2]);
+                            glVertex3f(Twc.m[12] + tvecs[j][0], Twc.m[13] + tvecs[j][1], Twc.m[14] + tvecs[j][2]);
+                        }
+                    }
+                }
+                glEnd();
             }
-            glEnd();
         }
+
+        cv::imshow("ORB-SLAM2: Current Frame",im);
+        cv::waitKey(1);
 
         // Draw Human pose
         if(mbHumanPose){
@@ -238,8 +243,6 @@ void Viewer::Run()
         }
 
         pangolin::FinishFrame();
-        cv::imshow("ORB-SLAM2: Current Frame",im);
-        cv::waitKey(mT - 5);
 
         if(menuReset)
         {

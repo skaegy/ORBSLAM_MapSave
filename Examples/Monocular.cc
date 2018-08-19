@@ -24,13 +24,15 @@
 #include <list>
 #include <thread>
 #include <opencv2/core/core.hpp>
+#include <opencv2/videoio.hpp>
+#include <opencv2/videoio/videoio_c.h>
 #include "System.h"
 
 using namespace std;
 
 int main()
 {
-    const string &strSettingPath = "../Setting.yaml";
+    const string &strSettingPath = "/home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/Setting.yaml";
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
     if(!fSettings.isOpened())
     {
@@ -44,7 +46,7 @@ int main()
     const string strMapPath = fSettings["ReuseMap"];
 
     const string strArucoParamsFile = fSettings["Aruco_Parameters"];
-    const string strArucoSettingsFile = strCamSet;
+    int ArucoDetect = fSettings["is_DetectMarker"];
     const string strOpenposeSettingFile = fSettings["Openpose_Parameters"];
     int HumanPose = fSettings["is_DetectHuman"];
     fSettings.release();
@@ -55,52 +57,78 @@ int main()
     bool bHumanPose = false;
     if (1 == HumanPose)
         bHumanPose = true;
+    bool bArucoDetect = false;
+    if (1 == ArucoDetect)
+        bArucoDetect = true;
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
     ORB_SLAM2::System SLAM(strORBvoc, strCamSet, strArucoParamsFile, strOpenposeSettingFile,
-                            ORB_SLAM2::System::MONOCULAR, true, bReuseMap, bHumanPose, strMapPath);
+                            ORB_SLAM2::System::MONOCULAR, true, bReuseMap, bHumanPose, bArucoDetect, strMapPath);
 
     cout << endl << "-------" << endl;
     cout << "Start processing sequence ..." << endl;
 
     // Main loop
-    cv::Mat imSlam, imAruco, imOP;
+    cv::Mat im, imSlam, imAruco, imOP;
     cv::VideoCapture capture(videoSoure);
-    capture.set(CV_CAP_PROP_FPS, 15);
-    bool OpStandBy;
+    bool OpStandBy, ARUCOStandBy;
+    list<cv::Mat> LoadImage;
 
-while(1){
-    if (!OpStandBy)
-        OpStandBy = SLAM.mpOpDetector->OpStandBy;
-    if (OpStandBy){
-        if (capture.grab()){
-            // Read image from file
-            capture.retrieve(imSlam, 0);
-            //capture >> imSlam;
-            imSlam.copyTo(imAruco);
-            imSlam.copyTo(imOP);
-            if(imSlam.empty())
+    std::thread LoadStreamingImage([&]() {
+        while (capture.isOpened())
+        {
+            cv::Mat im;
+            capture >> im;
+            if(im.empty())
             {
                 cerr << endl << "Failed to load image!" << endl;
-                return 1;
             }
+            LoadImage.push_front(im);
+            if (LoadImage.size() > 2){
+                LoadImage.pop_back();
+            }
+        }
+    });
+    LoadStreamingImage.detach();
 
-            // Pass the image to the SLAM system
-            SLAM.TrackMonocular(imSlam, 0);
-            // Pass the image to ARUCO marker detection system
+while(1){
+
+    if (bHumanPose)
+        OpStandBy = SLAM.mpOpDetector->OpStandBy;
+    if (bArucoDetect)
+        ARUCOStandBy = SLAM.mpArucoDetector->ArucoStandBy;
+    cout << "size:" << LoadImage.size() << endl;
+
+    if (LoadImage.size()>0){
+        imSlam = LoadImage.front();
+        imSlam.copyTo(imAruco);
+        imSlam.copyTo(imOP);
+        if(imSlam.empty())
+        {
+            cerr << endl << "Failed to load image!" << endl;
+            return 1;
+        }
+
+        // Pass the image to the SLAM system
+        SLAM.TrackMonocular(imSlam, 0);
+
+        // Pass the image to ARUCO marker detection system
+        if (ARUCOStandBy)
             SLAM.mpArucoDetector->ArucoLoadImage(imAruco, 0);
-            // Pass the image to Openpose system
+
+        // Pass the image to Openpose system
+        if (OpStandBy)
             SLAM.mpOpDetector->OpLoadImage(imOP, 0);
 
-            if(SLAM.isShutdown())
-                break;
-        }
+        if(SLAM.isShutdown())
+            break;
     }
 }
     // Stop all threads
     SLAM.Shutdown();
     // Save camera trajectory
-    //SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
+    SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
 
     return 0;
 }
+

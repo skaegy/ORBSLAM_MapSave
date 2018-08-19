@@ -33,7 +33,7 @@ int main()
     int ReuseMap = fSettings["is_ReuseMap"];
     const string strMapPath = fSettings["ReuseMap"];
     const string strArucoParamsFile = fSettings["Aruco_Parameters"];
-    const string strArucoSettingsFile = strCamSet;
+    int ArucoDetect = fSettings["is_DetectMarker"];
     const string strOpenposeSettingFile = fSettings["Openpose_Parameters"];
     int HumanPose = fSettings["is_DetectHuman"];
 
@@ -43,10 +43,13 @@ int main()
     bool bHumanPose = false;
     if (1 == HumanPose)
         bHumanPose = true;
+    bool bArucoDetect = false;
+    if (1 == ArucoDetect)
+        bArucoDetect = true;
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
     ORB_SLAM2::System SLAM(strORBvoc, strCamSet, strArucoParamsFile, strOpenposeSettingFile,
-                           ORB_SLAM2::System::RGBD, true, bReuseMap, bHumanPose, strMapPath);
+                           ORB_SLAM2::System::RGBD, true, bReuseMap, bHumanPose, bArucoDetect, strMapPath);
 
     cout << endl << "-------" << endl;
     cout << "Start processing sequence ..." << endl;
