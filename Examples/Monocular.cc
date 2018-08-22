@@ -84,9 +84,9 @@ int main()
                 cerr << endl << "Failed to load image!" << endl;
             }
             LoadImage.push_front(im);
-            if (LoadImage.size() > 2){
+            if (LoadImage.size() > 1)
                 LoadImage.pop_back();
-            }
+
         }
     });
     LoadStreamingImage.detach();
@@ -97,8 +97,6 @@ while(1){
         OpStandBy = SLAM.mpOpDetector->OpStandBy;
     if (bArucoDetect)
         ARUCOStandBy = SLAM.mpArucoDetector->ArucoStandBy;
-    cout << "size:" << LoadImage.size() << endl;
-
     if (LoadImage.size()>0){
         imSlam = LoadImage.front();
         imSlam.copyTo(imAruco);
@@ -110,7 +108,14 @@ while(1){
         }
 
         // Pass the image to the SLAM system
+        const auto timerBegin = std::chrono::high_resolution_clock::now();
         SLAM.TrackMonocular(imSlam, 0);
+        const auto now = std::chrono::high_resolution_clock::now();
+        const auto totalTimeSec = (double)std::chrono::duration_cast<std::chrono::nanoseconds>(now-timerBegin).count()
+                                  * 1e-9;
+        const auto message = "Total time: "
+                             + std::to_string(totalTimeSec ) + " seconds.";
+        cout << message << endl;
 
         // Pass the image to ARUCO marker detection system
         if (ARUCOStandBy)
@@ -118,7 +123,7 @@ while(1){
 
         // Pass the image to Openpose system
         if (OpStandBy)
-            SLAM.mpOpDetector->OpLoadImage(imOP, 0);
+            SLAM.mpOpDetector->OpLoadImageMonocular(imOP, 0);
 
         if(SLAM.isShutdown())
             break;

@@ -197,7 +197,7 @@ System::System(const string &strVocFile, const string &strSettingsFile,
     mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, mpLoopCloser);
 
     // 0. Initialize the openpose detector thread and launch
-    mpOpDetector = new OpDetector(strOpenposeSettingsFile, bHumanPose);
+    mpOpDetector = new OpDetector(strOpenposeSettingsFile, bHumanPose, mSensor);
     if (bHumanPose)
         mptOpDetector = new thread(&ORB_SLAM2::OpDetector::Run, mpOpDetector);
 

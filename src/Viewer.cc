@@ -85,7 +85,10 @@ void Viewer::Run()
     pangolin::Var<double> showPosX("menu.X(red)", 0);
     pangolin::Var<double> showPosY("menu.Y(green)", 0);
     pangolin::Var<double> showPosZ("menu.Z(blue)", 0);
-    pangolin::Var<int> NumberOfAruco("menu.noAruco",0, 0, 6);
+    pangolin::Var<int> NumberOfAruco("menu.ARUCO markers",0, 0, 6);
+    pangolin::Var<double> distHipX("menu.HIP_C: X", 0);
+    pangolin::Var<double> distHipY("menu.HIP_C: Y", 0);
+    pangolin::Var<double> distHipZ("menu.HIP_C: Z", 0);
 
     // Define Camera Render Object (for view / scene browsing)
     pangolin::OpenGlRenderState s_cam(
@@ -107,13 +110,15 @@ void Viewer::Run()
     });
 
 
-    pangolin::OpenGlMatrix Twc;
     Twc.SetIdentity();
 
     cv::namedWindow("ORB-SLAM2: Current Frame");
+    cv::namedWindow("Openpose");
 
     bool bFollow = true;
     bool bLocalizationMode = mbReuse;
+    mSensor = mpSystem->mSensor;
+
     while(1)
     {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -137,6 +142,7 @@ void Viewer::Run()
 
         mpMapDrawer->GetCurrentOpenGLCameraMatrix(Twc);
 
+        // Determine to draw different things according to GUI
         if(menuFollowCamera && bFollow)
         {
             s_cam.Follow(Twc);
@@ -205,7 +211,7 @@ void Viewer::Run()
                     }
                 }
 
-                // Draw on the 3D point clound
+                // Draw point and links the 3D point clound
                 glPointSize(15);
                 glBegin(GL_POINTS);
                 glColor3f(0.2,0.2,0.2);
@@ -229,17 +235,39 @@ void Viewer::Run()
             }
         }
 
-        cv::imshow("ORB-SLAM2: Current Frame",im);
-        cv::waitKey(1);
-
-        // Draw Human pose
+        // Draw 2d Human pose
         if(mbHumanPose){
            if (mpOpDetector->mlRenderPoseImage.size()>0){
                cv::Mat OpShow = mpOpDetector->mlRenderPoseImage.front();
-               mpOpDetector->mlRenderPoseImage.pop_front();
+               //mpOpDetector->mlRenderPoseImage.pop_front();
                cv::imshow("Openpose", OpShow);
                cv::waitKey(1);
            }
+            if (mpOpDetector->mlOPImage.size()>0){
+                cv::Mat OpShow = mpOpDetector->mlOPImage.front();
+                //mpOpDetector->mlRenderPoseImage.pop_front();
+                cv::imshow("Openpose_Original", OpShow);
+                cv::waitKey(1);
+            }
+        }
+
+        cv::imshow("ORB-SLAM2: Current Frame",im);
+        cv::waitKey(1);
+
+        // Draw 3D human pose (RGB-D)
+        if(mbHumanPose && mSensor == 2){
+            if (mpOpDetector->mlJoints3D.size()>0){
+                cv::Mat Joints3D = mpOpDetector->mlJoints3D.front();
+
+                cv::Vec3f hip_c = Joints3D.at<cv::Vec3f>(0,8);
+                if (hip_c[2] > 0){
+                    distHipX = Twc.m[12] + hip_c[0];
+                    distHipY = Twc.m[13] + hip_c[1];
+                    distHipZ = Twc.m[14] + hip_c[2];
+                }
+                Draw3DJoints(Joints3D);
+            }
+
         }
 
         pangolin::FinishFrame();
@@ -284,6 +312,45 @@ void Viewer::Run()
     }
 
     SetFinish();
+}
+
+void Viewer::Draw3DJoints(cv::Mat Joints3D) {
+    // Draw point and links the 3D point clound
+    glPointSize(10);
+    glBegin(GL_POINTS);
+    glColor3f(0.2,0.2,0.0);
+    vector<cv::Mat> channels(3);
+    split(Joints3D, channels);
+
+    for ( int i=0; i < Joints3D.cols; i++){
+        // No face
+        if (channels[2].at<float>(0,i) > 0 && (i < 15 || i > 18))
+            glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(0,i) + Twc.m[1] * channels[1].at<float>(0,i) + Twc.m[2] * channels[2].at<float>(0,i),
+                       Twc.m[13] + Twc.m[4] * channels[0].at<float>(0,i) + Twc.m[5] * channels[1].at<float>(0,i) + Twc.m[6] * channels[2].at<float>(0,i),
+                       Twc.m[14] + Twc.m[8] * channels[0].at<float>(0,i) + Twc.m[9] * channels[1].at<float>(0,i) + Twc.m[10] * channels[2].at<float>(0,i));
+    }
+    glEnd();
+
+
+    glLineWidth(5);
+    glColor3f(0.0,0.0,0.8);
+    int links[2][20] = {{0, 2, 2, 4, 5, 5, 7, 8 ,8 ,8,10,10,22,23,24,13,13,19,20,21},
+                        {1, 1, 3, 3, 1, 6, 6, 1, 9,12, 9,11,11,11,11,12,14,14,14,14}};
+    glBegin(GL_LINES);
+    for(int i=0; i<20; i++){
+        int p1 = links[0][i];
+        int p2 = links[1][i];
+        if (channels[2].at<float>(0,p1) > 0 && channels[2].at<float>(0,p2) > 0){
+            glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(0,p1) + Twc.m[1] * channels[1].at<float>(0,p1) + Twc.m[2] * channels[2].at<float>(0,p1),
+                       Twc.m[13] + Twc.m[4] * channels[0].at<float>(0,p1) + Twc.m[5] * channels[1].at<float>(0,p1) + Twc.m[6] * channels[2].at<float>(0,p1),
+                       Twc.m[14] + Twc.m[8] * channels[0].at<float>(0,p1) + Twc.m[9] * channels[1].at<float>(0,p1) + Twc.m[10] * channels[2].at<float>(0,p1));
+            glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(0,p2) + Twc.m[1] * channels[1].at<float>(0,p2) + Twc.m[2] * channels[2].at<float>(0,p2),
+                       Twc.m[13] + Twc.m[4] * channels[0].at<float>(0,p2) + Twc.m[5] * channels[1].at<float>(0,p2) + Twc.m[6] * channels[2].at<float>(0,p2),
+                       Twc.m[14] + Twc.m[8] * channels[0].at<float>(0,p2) + Twc.m[9] * channels[1].at<float>(0,p2) + Twc.m[10] * channels[2].at<float>(0,p2));
+        }
+    }
+    glEnd();
+
 }
 
 void Viewer::RequestFinish()

@@ -67,6 +67,10 @@ public:
     };
 
 public:
+    // Input sensor
+    // enum: MONOCULAR, STEREO, RGBD
+    eSensor mSensor;
+
 	// Enable serialization
 	friend class boost::serialization::access;
 
@@ -143,10 +147,6 @@ public:
     ArucoDetector* mpArucoDetector;
     OpDetector* mpOpDetector;
 private:
-
-    // Input sensor
-    // enum: MONOCULAR, STEREO, RGBD
-    eSensor mSensor;
 
     // ORB vocabulary used for place recognition and feature matching.
     ORBVocabulary* mpVocabulary;

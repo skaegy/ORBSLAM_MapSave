@@ -62,8 +62,10 @@ public:
     void Release();
 
 private:
+    void Draw3DJoints(cv::Mat Joints3D);
 
     bool Stop();
+
 	bool mbReuse;
 	bool mbHumanPose;
 	bool mbARUCODetect;
@@ -76,9 +78,12 @@ private:
 
     // 1/fps in ms
     double mT;
+    int mSensor;
     float mImageWidth, mImageHeight;
 
     float mViewpointX, mViewpointY, mViewpointZ, mViewpointF;
+
+	pangolin::OpenGlMatrix Twc;
 
     bool CheckFinish();
     void SetFinish();
