@@ -49,12 +49,11 @@ public:
 
     void Release();
 
-    list<cv::Mat> mlLoadImage;
-    list<cv::Mat> mlLoadDepth;
-    list<cv::Mat> mlRenderPoseImage;
-    list<cv::Mat> mlOPImage;
-    list<cv::Mat> mlJoints2D;
-    list<cv::Mat> mlJoints3D;
+    list<cv::Mat> mlLoadImage, mlLoadDepth, mlRenderPoseImage;
+    cv::Mat mJoints2D;
+    vector<cv::Mat> mvJoints3Draw;
+    vector<cv::Mat> mvJoints3DEKF;
+    vector<double> mvTimestamp;
 
     bool OpStandBy = false;
 
@@ -69,6 +68,8 @@ private:
 
     cv::Mat GetInformPersonJoint(cv::Mat Joints2D, double renderThres, cv::Size Im_size);
 
+    cv::KalmanFilter KFInitialization(const int stateNum, const int measureNum, double wk, double vk, double pk);
+
     bool Stop();
 
     bool CheckFinish();
@@ -80,7 +81,9 @@ private:
     double scale_gap, render_threshold, alpha_pose;
     string model_pose, model_folder, net_resolution, output_resolution;
     double fx, fy, ppx, ppy;
+    double wk, vk, pk;
     int mSensor;
+    list<double> mlLoadTimestamp;
 
 
     bool mbFinishRequested;
@@ -92,6 +95,9 @@ private:
     std::mutex mMutexStop;
 
     bool mbHumanPose = true;
+
+    bool isAfterFirst[25] = {0};
+    cv::KalmanFilter KFs3D[25];
 
 protected:
     std::mutex mMutexOp;

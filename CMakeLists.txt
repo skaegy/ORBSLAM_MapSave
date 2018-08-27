@@ -40,6 +40,7 @@ find_package(Boost  1.54.0  	     # Minimum or EXACT version e.g. 1.36.0
 #set(DLL_DIR "C:\\Program Files (x86)\\Intel RealSense SDK 2.0\\bin\\x64")
 find_package(realsense2 REQUIRED)
 find_package(OpenPose REQUIRED)
+find_package(OpenMP REQUIRED)
 
 #add_subdirectory(Thirdparty/DBoW2)
 
@@ -91,8 +92,6 @@ ${realsense2_LIBRARIES}
 
 # Build examples
 
-
-
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Monocular)
 
 add_executable(Monocular
@@ -101,7 +100,7 @@ target_link_libraries(Monocular ${PROJECT_NAME})
 
 add_executable(RGBD
 Examples/RGBD.cpp)
-target_link_libraries(RGBD ${PROJECT_NAME} realsense2)
+target_link_libraries(RGBD ${PROJECT_NAME} realsense2 OpenMP::OpenMP_CXX)
 
 # Build tools
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/tools)

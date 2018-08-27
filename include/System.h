@@ -109,8 +109,6 @@ public:
     // Reset the system (clear map)
     void Reset();
 
-    void SaveMapRequest();
-
     // All threads will be requested to finish.
     // It waits until all threads have finished.
     // This function must be called before saving the trajectory.
@@ -119,28 +117,23 @@ public:
     bool isShutdown();
 
 	// Save / Load the current map for Mono Execution
+    void SaveMapRequest();
 	void SaveMap(const string &filename);
 	void LoadMap(const string &filename);
 
-	// Get map with tracked frames and points.
-	// Call first Shutdown()
-	//Map *GetMap();
+	// Save Human skeleton trajectory
+	void SaveSkeletonRequest();
+	void SaveSkeletonTimeStamp(const string &filename);
+	void SaveSkeletonTrajectory(const string &filename);
 
-    // Save camera trajectory in the TUM RGB-D dataset format.
-    // Call first Shutdown()
-    // See format details at: http://vision.in.tum.de/data/datasets/rgbd-dataset
-    void SaveTrajectoryTUM(const string &filename);
 
-    // Save keyframe poses in the TUM RGB-D dataset format.
-    // Use this function in the monocular case.
-    // Call first Shutdown()
-    // See format details at: http://vision.in.tum.de/data/datasets/rgbd-dataset
-    void SaveKeyFrameTrajectoryTUM(const string &filename);
+    // Save dense camera trajectory & camera keyframe trajectory
+    void SaveTrajectoryRequest();
+    void SaveCameraTrajectory(const string &filename);
+    void SaveKeyFrameTrajectory(const string &filename);
 
-    // Save camera trajectory in the KITTI dataset format.
-    // Call first Shutdown()
-    // See format details at: http://www.cvlibs.net/datasets/kitti/eval_odometry.php
-    void SaveTrajectoryKITTI(const string &filename);
+    // Save stereo camera trajectory
+    void SaveStereoKeyFrameTrajectory(const string &filename);
 
     // ARUCO marker detector. It detect the aruco marker in the rgb image and calculate the distance and relative poistion
     // between the camera and the detected marker.

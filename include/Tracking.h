@@ -40,6 +40,7 @@
 #include "System.h"
 
 #include <mutex>
+#include <omp.h>
 
 namespace ORB_SLAM2
 {

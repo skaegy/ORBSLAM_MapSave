@@ -73,15 +73,20 @@ void Viewer::Run()
     glEnable (GL_BLEND);
     glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    pangolin::CreatePanel("menu").SetBounds(0.0,1.0,0.0,pangolin::Attach::Pix(175));
+    pangolin::CreatePanel("menu").SetBounds(0.0,1.0,0.0,pangolin::Attach::Pix(200));
     pangolin::Var<bool> menuFollowCamera("menu.Follow Camera",true,true);
     pangolin::Var<bool> menuShowPoints("menu.Show Points",true,true);
     pangolin::Var<bool> menuShowKeyFrames("menu.Show KeyFrames",true,true);
     pangolin::Var<bool> menuShowGraph("menu.Show Graph",true,true);
     pangolin::Var<bool> menuLocalizationMode("menu.Localization Mode",mbReuse,true);
+
     pangolin::Var<bool> menuSaveMap("menu.Save Map",false,false);
+    pangolin::Var<bool> menuSaveCamTrj("menu.Save Cam Trajectory",false,false);
+    pangolin::Var<bool> menuSaveSkeleton("menu.Save Skeleton",false,false);
     pangolin::Var<bool> menuReset("menu.Reset",false,false);
     pangolin::Var<bool> menuShutDown("menu.Shut Down",false,false);
+
+
     pangolin::Var<double> showPosX("menu.X(red)", 0);
     pangolin::Var<double> showPosY("menu.Y(green)", 0);
     pangolin::Var<double> showPosZ("menu.Z(blue)", 0);
@@ -119,6 +124,8 @@ void Viewer::Run()
     bool bLocalizationMode = mbReuse;
     mSensor = mpSystem->mSensor;
 
+    const auto time_begin = std::chrono::high_resolution_clock::now();
+    double lastTime = 0.0;
     while(1)
     {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -239,39 +246,56 @@ void Viewer::Run()
         if(mbHumanPose){
            if (mpOpDetector->mlRenderPoseImage.size()>0){
                cv::Mat OpShow = mpOpDetector->mlRenderPoseImage.front();
-               //mpOpDetector->mlRenderPoseImage.pop_front();
                cv::imshow("Openpose", OpShow);
                cv::waitKey(1);
            }
-            if (mpOpDetector->mlOPImage.size()>0){
-                cv::Mat OpShow = mpOpDetector->mlOPImage.front();
-                //mpOpDetector->mlRenderPoseImage.pop_front();
-                cv::imshow("Openpose_Original", OpShow);
-                cv::waitKey(1);
-            }
         }
-
-        cv::imshow("ORB-SLAM2: Current Frame",im);
-        cv::waitKey(1);
 
         // Draw 3D human pose (RGB-D)
         if(mbHumanPose && mSensor == 2){
-            if (mpOpDetector->mlJoints3D.size()>0){
-                cv::Mat Joints3D = mpOpDetector->mlJoints3D.front();
+            if (mpOpDetector->mvJoints3DEKF.size()>0){
+                cv::Mat Joints3Dekf = mpOpDetector->mvJoints3DEKF.back();
 
-                cv::Vec3f hip_c = Joints3D.at<cv::Vec3f>(0,8);
+                cv::Vec3f hip_c = Joints3Dekf.at<cv::Vec3f>(8);
                 if (hip_c[2] > 0){
                     distHipX = Twc.m[12] + hip_c[0];
                     distHipY = Twc.m[13] + hip_c[1];
                     distHipZ = Twc.m[14] + hip_c[2];
                 }
-                Draw3DJoints(Joints3D);
+                Draw3DJoints(Joints3Dekf);
             }
+
+            if (mpOpDetector->mvJoints3Draw.size()>0){
+                cv::Mat Joints3Draw = mpOpDetector->mvJoints3Draw.back() - 1;
+                Draw3DJoints(Joints3Draw);
+            }
+
+            if (mpOpDetector->mvJoints3Draw.size()>0 && mpOpDetector->mvJoints3DEKF.size()>0){
+                cout << mpOpDetector->mvJoints3Draw.back() - mpOpDetector->mvJoints3DEKF.back() << endl;
+            }
+
 
         }
 
         pangolin::FinishFrame();
+        const auto now = std::chrono::high_resolution_clock::now();
+        const auto totalTimeSec =
+                (double) std::chrono::duration_cast<std::chrono::nanoseconds>(now - time_begin).count()
+                * 1e-6;
+        const auto message = "One frame time: "
+                             + std::to_string(totalTimeSec - lastTime) + " milliseconds.";
 
+        //cout << message << endl;
+
+        // Draw ORB-SLAM
+        cv::imshow("ORB-SLAM2: Current Frame",im);
+        double wait_ms = (mT + lastTime - totalTimeSec);
+        if ( wait_ms > 1.0)
+            cv::waitKey((int)wait_ms);
+        else
+            cv::waitKey(1);
+
+        lastTime = totalTimeSec;
         if(menuReset)
         {
             menuShowGraph = true;
@@ -291,6 +315,18 @@ void Viewer::Run()
         {
             mpSystem->SaveMapRequest();
             menuSaveMap = false;
+        }
+
+        if(menuSaveSkeleton)
+        {
+            mpSystem->SaveSkeletonRequest();
+            menuSaveSkeleton = false;
+        }
+
+        if(menuSaveCamTrj)
+        {
+            mpSystem->SaveTrajectoryRequest();
+            menuSaveCamTrj = false;
         }
 
         if(menuShutDown)
@@ -325,9 +361,9 @@ void Viewer::Draw3DJoints(cv::Mat Joints3D) {
     for ( int i=0; i < Joints3D.cols; i++){
         // No face
         if (channels[2].at<float>(0,i) > 0 && (i < 15 || i > 18))
-            glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(0,i) + Twc.m[1] * channels[1].at<float>(0,i) + Twc.m[2] * channels[2].at<float>(0,i),
-                       Twc.m[13] + Twc.m[4] * channels[0].at<float>(0,i) + Twc.m[5] * channels[1].at<float>(0,i) + Twc.m[6] * channels[2].at<float>(0,i),
-                       Twc.m[14] + Twc.m[8] * channels[0].at<float>(0,i) + Twc.m[9] * channels[1].at<float>(0,i) + Twc.m[10] * channels[2].at<float>(0,i));
+            glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(i) + Twc.m[1] * channels[1].at<float>(i) + Twc.m[2] * channels[2].at<float>(i),
+                       Twc.m[13] + Twc.m[4] * channels[0].at<float>(i) + Twc.m[5] * channels[1].at<float>(i) + Twc.m[6] * channels[2].at<float>(i),
+                       Twc.m[14] + Twc.m[8] * channels[0].at<float>(i) + Twc.m[9] * channels[1].at<float>(i) + Twc.m[10] * channels[2].at<float>(i));
     }
     glEnd();
 
@@ -340,13 +376,13 @@ void Viewer::Draw3DJoints(cv::Mat Joints3D) {
     for(int i=0; i<20; i++){
         int p1 = links[0][i];
         int p2 = links[1][i];
-        if (channels[2].at<float>(0,p1) > 0 && channels[2].at<float>(0,p2) > 0){
-            glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(0,p1) + Twc.m[1] * channels[1].at<float>(0,p1) + Twc.m[2] * channels[2].at<float>(0,p1),
-                       Twc.m[13] + Twc.m[4] * channels[0].at<float>(0,p1) + Twc.m[5] * channels[1].at<float>(0,p1) + Twc.m[6] * channels[2].at<float>(0,p1),
-                       Twc.m[14] + Twc.m[8] * channels[0].at<float>(0,p1) + Twc.m[9] * channels[1].at<float>(0,p1) + Twc.m[10] * channels[2].at<float>(0,p1));
-            glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(0,p2) + Twc.m[1] * channels[1].at<float>(0,p2) + Twc.m[2] * channels[2].at<float>(0,p2),
-                       Twc.m[13] + Twc.m[4] * channels[0].at<float>(0,p2) + Twc.m[5] * channels[1].at<float>(0,p2) + Twc.m[6] * channels[2].at<float>(0,p2),
-                       Twc.m[14] + Twc.m[8] * channels[0].at<float>(0,p2) + Twc.m[9] * channels[1].at<float>(0,p2) + Twc.m[10] * channels[2].at<float>(0,p2));
+        if (channels[2].at<float>(p1) > 0 && channels[2].at<float>(p2) > 0){
+            glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(p1) + Twc.m[1] * channels[1].at<float>(p1) + Twc.m[2] * channels[2].at<float>(p1),
+                       Twc.m[13] + Twc.m[4] * channels[0].at<float>(p1) + Twc.m[5] * channels[1].at<float>(p1) + Twc.m[6] * channels[2].at<float>(p1),
+                       Twc.m[14] + Twc.m[8] * channels[0].at<float>(p1) + Twc.m[9] * channels[1].at<float>(p1) + Twc.m[10] * channels[2].at<float>(p1));
+            glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(p2) + Twc.m[1] * channels[1].at<float>(p2) + Twc.m[2] * channels[2].at<float>(p2),
+                       Twc.m[13] + Twc.m[4] * channels[0].at<float>(p2) + Twc.m[5] * channels[1].at<float>(p2) + Twc.m[6] * channels[2].at<float>(p2),
+                       Twc.m[14] + Twc.m[8] * channels[0].at<float>(p2) + Twc.m[9] * channels[1].at<float>(p2) + Twc.m[10] * channels[2].at<float>(p2));
         }
     }
     glEnd();

@@ -482,15 +482,16 @@ void System::Shutdown()
 {
     mpLocalMapper->RequestFinish();
     mpLoopCloser->RequestFinish();
-    mpViewer->RequestFinish();
-    mpArucoDetector->RequestFinish();
+    //mpViewer->RequestFinish();
+    //mpArucoDetector->RequestFinish();
 
     // Wait until all thread have effectively stopped
-    while(!mpLocalMapper->isFinished() || !mpLoopCloser->isFinished()  ||
-          !mpViewer->isFinished()      || mpLoopCloser->isRunningGBA() || !mpArucoDetector->isFinished())
+    /*
+    while(!mpLocalMapper->isFinished() || !mpLoopCloser->isFinished() )
     {
         usleep(5000);
     }
+     */
 
     pangolin::BindToContext("ORB-SLAM2: Map Viewer");
 }
@@ -524,12 +525,62 @@ void System::SaveMap(const string &filename)
 
 }
 
+void System::SaveSkeletonRequest(){
+    SaveSkeletonTrajectory("SkeletonTrajectory.txt");
+    SaveSkeletonTimeStamp("SkeletonTimestamp.txt");
+}
 
-void System::SaveTrajectoryTUM(const string &filename)
-{
+void System::SaveSkeletonTimeStamp(const string &filename){
+    vector<double> timestamp = mpOpDetector->mvTimestamp;
+    ofstream f;
+    f.open(filename.c_str());
+    f << fixed;
+
+    if (timestamp.size()>0){
+        for(vector<double>::iterator lit=timestamp.begin(),lend=timestamp.end();lit!=lend;lit++)
+        {
+            double ts = *lit;
+
+            f << setprecision(6) << ts/1e3 << endl;
+        }
+    }
+
+    f.close();
+
+}
+
+void System::SaveSkeletonTrajectory(const string &filename){
+    cout << endl << "Saving human skeleton trajectory to " << filename << " ..." << endl;
+    vector<cv::Mat> Joints3D = mpOpDetector->mvJoints3DEKF;
+
+    ofstream f;
+    f.open(filename.c_str());
+    f << fixed;
+
+    if (Joints3D.size()>0){
+        for(vector<cv::Mat>::iterator lit=Joints3D.begin(),lend=Joints3D.end();lit!=lend;lit++)
+        {
+            cv::Mat Joints = *lit;
+
+            f << setprecision(3) << Joints << endl;
+        }
+    }
+
+    f.close();
+
+    cout << endl << "Skeleton trajectory saved!" << endl;
+
+}
+
+void System::SaveTrajectoryRequest(){
+    SaveKeyFrameTrajectory("KeyFrameTrajectory.txt");
+}
+
+void System::SaveCameraTrajectory(const string &filename){
     cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
 
     vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
+
     sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
 
     // Transform all keyframes so that the first keyframe is at the origin.
@@ -580,8 +631,7 @@ void System::SaveTrajectoryTUM(const string &filename)
     cout << endl << "trajectory saved!" << endl;
 }
 
-
-void System::SaveKeyFrameTrajectoryTUM(const string &filename)
+void System::SaveKeyFrameTrajectory(const string &filename)
 {
     cout << endl << "Saving keyframe trajectory to " << filename << " ..." << endl;
 
@@ -608,7 +658,8 @@ void System::SaveKeyFrameTrajectoryTUM(const string &filename)
         cv::Mat R = pKF->GetRotation().t();
         vector<float> q = Converter::toQuaternion(R);
         cv::Mat t = pKF->GetCameraCenter();
-        f << setprecision(6) << pKF->mTimeStamp << setprecision(7) << " " << t.at<float>(0) << " " << t.at<float>(1) << " " << t.at<float>(2)
+
+        f << setprecision(6) << (pKF->mTimeStamp)/1e3 << setprecision(7) << " " << t.at<float>(0) << " " << t.at<float>(1) << " " << t.at<float>(2)
           << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
 
     }
@@ -617,7 +668,7 @@ void System::SaveKeyFrameTrajectoryTUM(const string &filename)
     cout << endl << "trajectory saved!" << endl;
 }
 
-void System::SaveTrajectoryKITTI(const string &filename)
+void System::SaveStereoKeyFrameTrajectory(const string &filename)
 {
     cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
 

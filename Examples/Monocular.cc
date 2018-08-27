@@ -109,6 +109,7 @@ while(1){
 
         // Pass the image to the SLAM system
         const auto timerBegin = std::chrono::high_resolution_clock::now();
+
         SLAM.TrackMonocular(imSlam, 0);
         const auto now = std::chrono::high_resolution_clock::now();
         const auto totalTimeSec = (double)std::chrono::duration_cast<std::chrono::nanoseconds>(now-timerBegin).count()
@@ -130,9 +131,9 @@ while(1){
     }
 }
     // Stop all threads
-    SLAM.Shutdown();
+    //SLAM.Shutdown();
     // Save camera trajectory
-    SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
+    SLAM.SaveCameraTrajectory("MonocularTrajectory.txt");
 
     return 0;
 }

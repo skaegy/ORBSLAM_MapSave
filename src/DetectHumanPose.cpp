@@ -40,6 +40,9 @@ OpDetector::OpDetector(const string &strOpenposeSettingsFile, const bool bHumanP
     fy = fs["Camera.fy"];
     ppx = fs["Camera.cx"];
     ppy = fs["Camera.cy"];
+    wk = fs["KF.wk"];
+    vk = fs["KF.vk"];
+    pk = fs["KF.pk"];
 
     fs.release();
     mSensor = SensorMode;
@@ -48,7 +51,7 @@ OpDetector::OpDetector(const string &strOpenposeSettingsFile, const bool bHumanP
 void OpDetector::Run() {
     const auto timerBegin = std::chrono::high_resolution_clock::now();
     double lastTimeSec = 0.0;
-    // ------------------------- INITIALIZATION -------------------------
+    // ------------------------- OPENPOSE INITIALIZATION -------------------------
     // Step 1 - Set logging level
     // - 0 will output all the logging messages
     // - 255 will output nothing
@@ -87,14 +90,23 @@ void OpDetector::Run() {
     const auto totalTimeSec =
             (double) std::chrono::duration_cast<std::chrono::nanoseconds>(now - timerBegin).count()
             * 1e-9;
-    const auto message = "OpenPose demo successfully finished. Total time: "
+    const auto message = "OpenPose demo initialized. Total time: "
                          + std::to_string(totalTimeSec - lastTimeSec) + " seconds.";
     op::log(message, op::Priority::High);
     OpStandBy = true;
 
+    // ------------------------- 3D --> KALMAN FILTER INITIALIZATION -------------------------
+    const int stateNum = 6;
+    const int measureNum = 3;
+    for (int i = 8; i < 15; i ++){
+        KFs3D[i] = KFInitialization(stateNum, measureNum, wk, vk, pk);
+    }
+
+
     while (!mbStopped ) {
         if (mbHumanPose && mlLoadImage.size() > 0) {
             cv::Mat inputImage = mlLoadImage.front();
+            double timestamp = mlLoadTimestamp.front();
 
             const op::Point<int> imageSize{inputImage.cols, inputImage.rows};
             // Step 2 - Get desired scale sizes
@@ -113,15 +125,13 @@ void OpDetector::Run() {
             const auto poseKeypoints = poseExtractorCaffe.getPoseKeypoints();
 
             // Step 6 - Render poseKeypoints
-            poseRenderer.renderPose(outputArray, poseKeypoints, scaleInputToOutput);
+            //poseRenderer.renderPose(outputArray, poseKeypoints, scaleInputToOutput);
             // Step 7 - OpenPose output format to cv::Mat
-            auto OutputImage = opOutputToCvMat.formatToCvMat(outputArray);
+            //auto OutputImage = opOutputToCvMat.formatToCvMat(outputArray);
 
             // Step 7: Extract most significant 2D joints and Compute 3D positions (if RGB-D)
             cv::Mat joints2D = poseKeypoints.getConstCvMat();
-            if (mlOPImage.size() > 2)
-                mlOPImage.pop_back();
-            mlOPImage.push_front(OutputImage);
+
 
             if (joints2D.rows > 0){
                 cv::Mat keyJoint2D =GetInformPersonJoint(joints2D, render_threshold, cv::Size(inputImage.cols, inputImage.rows));
@@ -129,18 +139,11 @@ void OpDetector::Run() {
                 auto newposeKeypoints = cvMatToOpOutput.createArray(keyJoint2D, scaleInputToOutput, outputResolution);
                 poseRenderer.renderPose(newoutputArray, newposeKeypoints, scaleInputToOutput);
                 auto newOutputImage = opOutputToCvMat.formatToCvMat(newoutputArray);
-                string str = "People: " + to_string(keyJoint2D.rows) + "-->Draw dim: " + to_string(keyJoint2D.rows*keyJoint2D.cols*keyJoint2D.channels());
-                char *cstr = &str[0u];
-                cv::Point origin;
-                origin.x = 10; origin.y = 100;
-                cv::putText(inputImage, cstr, origin, FONT_HERSHEY_COMPLEX, 0.8, cv::Scalar(255, 0, 255), 2);
-                Plot2DJoints(keyJoint2D, inputImage, render_threshold);
+                //Plot2DJoints(keyJoint2D, inputImage, render_threshold);
 
-                mlJoints2D.push_front(keyJoint2D);
-                if (mlJoints2D.size() > 2)
-                    mlJoints2D.pop_back();
+                keyJoint2D.copyTo(mJoints2D);
 
-                mlRenderPoseImage.push_front(inputImage);
+                mlRenderPoseImage.push_front(newOutputImage);
                 if (mlRenderPoseImage.size() > 2)
                     mlRenderPoseImage.pop_back();
 
@@ -148,9 +151,50 @@ void OpDetector::Run() {
                 if (mSensor == 2 && mlLoadDepth.size() > 0){
                     cv::Mat inputDepth = mlLoadDepth.front();
                     cv::Mat Joints3D = Joints2Dto3D(keyJoint2D, inputDepth, render_threshold);
-                    mlJoints3D.push_front(Joints3D);
-                    if (mlJoints3D.size()>2)
-                        mlJoints3D.pop_back();
+                    mvJoints3Draw.push_back(Joints3D);
+                    cv::Mat Joints3D_EKFsmooth;
+                    Joints3D.copyTo(Joints3D_EKFsmooth);
+
+                    // KALMAN SMOOTHER
+                    for (int i = 8; i < 15; i ++){
+                        Vec3f jointRaw = Joints3D.at<cv::Vec3f>(i);
+                        Vec3f jointSmooth;
+                        if (isAfterFirst[i] == false){  // (Frame = 1)
+                            if (jointRaw[2] > 0){
+                                Mat predictionPt = KFs3D[i].predict();
+                                Mat measurementPt = Mat::zeros(measureNum, 1, CV_32F); //measurement(x,y)
+                                measurementPt.at<float>(0) = jointRaw[0];
+                                measurementPt.at<float>(1) = jointRaw[1];
+                                measurementPt.at<float>(2) = jointRaw[2];
+                                Mat estimatedPt = KFs3D[i].correct(measurementPt);
+                                KFs3D[i].statePost = KFs3D[i].statePre + KFs3D[i].gain * KFs3D[i].temp5;
+
+                                isAfterFirst[i] = true;
+                            }
+                        }
+                        else{ // Frame > 1
+                            Mat prediction = KFs3D[i].predict();
+                            Mat measurementPt = Mat::zeros(measureNum, 1, CV_32F); //measurement(x,y)
+                            if (jointRaw[2] > 0){  // If there is measurement
+                                measurementPt.at<float>(0) = jointRaw[0];
+                                measurementPt.at<float>(1) = jointRaw[1];
+                                measurementPt.at<float>(2) = jointRaw[2];
+                            }
+                            else{ // If there is  no measurement
+                                cv::Mat lastState = KFs3D[i].statePost;
+                                measurementPt = KFs3D[i].measurementMatrix*lastState;
+                            }
+                            Mat estimatedPt = KFs3D[i].correct(measurementPt);
+                            KFs3D[i].statePost = KFs3D[i].statePre + KFs3D[i].gain * KFs3D[i].temp5;
+
+                            jointSmooth[0] = KFs3D[i].statePost.at<float>(0);
+                            jointSmooth[1] = KFs3D[i].statePost.at<float>(1);
+                            jointSmooth[2] = KFs3D[i].statePost.at<float>(2);
+                            Joints3D_EKFsmooth.at<cv::Vec3f>(i) = jointSmooth;
+                        }
+                    }
+                    mvJoints3DEKF.push_back(Joints3D_EKFsmooth);
+                    mvTimestamp.push_back(timestamp);
                 }
             }
             else{
@@ -169,21 +213,27 @@ void OpDetector::SetViewer(ORB_SLAM2::Viewer *pViewer) {
 void OpDetector::OpLoadImageMonocular(const cv::Mat &im, const double &timestamp) {
     cv::Mat BufMat;
     im.copyTo(BufMat);
-    if (mlLoadImage.size()>2)
-        mlLoadImage.pop_back();
     mlLoadImage.push_front(BufMat);
+    if (mlLoadImage.size()>1)
+        mlLoadImage.pop_back();
+    mlLoadTimestamp.push_front(timestamp);
+    if (mlLoadTimestamp.size()>1)
+        mlLoadTimestamp.pop_back();
 }
 
 void OpDetector::OpLoadImageRGBD(const cv::Mat &imRGB, const cv::Mat &imD, const double &timestamp) {
     cv::Mat BufRGB, BufDepth;
     imRGB.copyTo(BufRGB);
     imD.copyTo(BufDepth);
-    if (mlLoadImage.size()>2)
-        mlLoadImage.pop_back();
     mlLoadImage.push_front(BufRGB);
-    if (mlLoadDepth.size()>2)
-        mlLoadDepth.pop_back();
+    if (mlLoadImage.size()>1)
+        mlLoadImage.pop_back();
     mlLoadDepth.push_front(BufDepth);
+    if (mlLoadDepth.size()>1)
+        mlLoadDepth.pop_back();
+    mlLoadTimestamp.push_front(timestamp);
+    if (mlLoadTimestamp.size()>1)
+        mlLoadTimestamp.pop_back();
 }
 
 cv::Mat OpDetector::Joints2Dto3D(cv::Mat Joints2D, cv::Mat& imD, double renderThres){
@@ -298,7 +348,7 @@ cv::Mat OpDetector::GetInformPersonJoint(cv::Mat Joints2D, double renderThres, c
     cv::Mat InformPerson(1, 25, CV_32FC3, cv::Mat::AUTO_STEP);
     int N = Joints2D.rows;
     double Thres = renderThres;
-    double score_avg = 0.0, dist_centroid = 0.0;
+    double score_avg;
     vector<Mat> channels(3);
     split(Joints2D, channels);
     for (int i = 0; i < N; i++){
@@ -346,6 +396,28 @@ cv::Mat OpDetector::GetInformPersonJoint(cv::Mat Joints2D, double renderThres, c
 
     return InformPerson;
 }
+
+cv::KalmanFilter OpDetector::KFInitialization(const int stateNum, const int measureNum, double wk, double vk, double pk){
+    KalmanFilter KF(stateNum, measureNum, 0);
+    Mat state(stateNum, 1, CV_32FC1); // STATE (x, y, dx, dy)
+    Mat processNoise(stateNum, 1, CV_32F);
+    Mat measurement = Mat::zeros(measureNum, 1, CV_32F); //measurement(x,y)
+
+    cv::setIdentity(KF.measurementMatrix);
+    cv::setIdentity(KF.processNoiseCov, Scalar::all(wk));
+    cv::setIdentity(KF.measurementNoiseCov, Scalar::all(vk));
+    cv::setIdentity(KF.errorCovPost, Scalar::all(pk));
+
+    Mat transitionMatrix = cv::Mat::eye(stateNum, stateNum, CV_32FC1);
+
+    for (int i = 0; i < measureNum; i++){
+        transitionMatrix.at<float>(i, measureNum+i) = 0.5;
+    }
+    KF.transitionMatrix = transitionMatrix;
+
+    return KF;
+}
+
 
 void OpDetector::RequestFinish()
 {
