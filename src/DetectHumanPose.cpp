@@ -98,9 +98,10 @@ void OpDetector::Run() {
     // ------------------------- 3D --> KALMAN FILTER INITIALIZATION -------------------------
     const int stateNum = 6;
     const int measureNum = 3;
-    for (int i = 8; i < 15; i ++){
+    for (int i = 0; i < 25; i ++){
         KFs3D[i] = KFInitialization(stateNum, measureNum, wk, vk, pk);
     }
+    int LowerLimb[13]={8,9,10,11,12,13,14,19,20,21,22,23,24};
 
 
     while (!mbStopped ) {
@@ -156,24 +157,25 @@ void OpDetector::Run() {
                     Joints3D.copyTo(Joints3D_EKFsmooth);
 
                     // KALMAN SMOOTHER
-                    for (int i = 8; i < 15; i ++){
-                        Vec3f jointRaw = Joints3D.at<cv::Vec3f>(i);
+                    for (int i = 0; i < 13; i ++){
+                        int idx = LowerLimb[i];
+                        Vec3f jointRaw = Joints3D.at<cv::Vec3f>(idx);
                         Vec3f jointSmooth;
-                        if (isAfterFirst[i] == false){  // (Frame = 1)
+                        if (isAfterFirst[idx] == false){  // (Frame = 1)
                             if (jointRaw[2] > 0){
-                                Mat predictionPt = KFs3D[i].predict();
+                                Mat predictionPt = KFs3D[idx].predict();
                                 Mat measurementPt = Mat::zeros(measureNum, 1, CV_32F); //measurement(x,y)
                                 measurementPt.at<float>(0) = jointRaw[0];
                                 measurementPt.at<float>(1) = jointRaw[1];
                                 measurementPt.at<float>(2) = jointRaw[2];
-                                Mat estimatedPt = KFs3D[i].correct(measurementPt);
-                                KFs3D[i].statePost = KFs3D[i].statePre + KFs3D[i].gain * KFs3D[i].temp5;
+                                Mat estimatedPt = KFs3D[idx].correct(measurementPt);
+                                KFs3D[idx].statePost = KFs3D[idx].statePre + KFs3D[idx].gain * KFs3D[idx].temp5;
 
-                                isAfterFirst[i] = true;
+                                isAfterFirst[idx] = true;
                             }
                         }
                         else{ // Frame > 1
-                            Mat prediction = KFs3D[i].predict();
+                            Mat prediction = KFs3D[idx].predict();
                             Mat measurementPt = Mat::zeros(measureNum, 1, CV_32F); //measurement(x,y)
                             if (jointRaw[2] > 0){  // If there is measurement
                                 measurementPt.at<float>(0) = jointRaw[0];
@@ -181,16 +183,16 @@ void OpDetector::Run() {
                                 measurementPt.at<float>(2) = jointRaw[2];
                             }
                             else{ // If there is  no measurement
-                                cv::Mat lastState = KFs3D[i].statePost;
-                                measurementPt = KFs3D[i].measurementMatrix*lastState;
+                                cv::Mat lastState = KFs3D[idx].statePost;
+                                measurementPt = KFs3D[idx].measurementMatrix*lastState;
                             }
-                            Mat estimatedPt = KFs3D[i].correct(measurementPt);
-                            KFs3D[i].statePost = KFs3D[i].statePre + KFs3D[i].gain * KFs3D[i].temp5;
+                            Mat estimatedPt = KFs3D[idx].correct(measurementPt);
+                            KFs3D[idx].statePost = KFs3D[idx].statePre + KFs3D[idx].gain * KFs3D[idx].temp5;
 
-                            jointSmooth[0] = KFs3D[i].statePost.at<float>(0);
-                            jointSmooth[1] = KFs3D[i].statePost.at<float>(1);
-                            jointSmooth[2] = KFs3D[i].statePost.at<float>(2);
-                            Joints3D_EKFsmooth.at<cv::Vec3f>(i) = jointSmooth;
+                            jointSmooth[0] = KFs3D[idx].statePost.at<float>(0);
+                            jointSmooth[1] = KFs3D[idx].statePost.at<float>(1);
+                            jointSmooth[2] = KFs3D[idx].statePost.at<float>(2);
+                            Joints3D_EKFsmooth.at<cv::Vec3f>(idx) = jointSmooth;
                         }
                     }
                     mvJoints3DEKF.push_back(Joints3D_EKFsmooth);

@@ -9,7 +9,7 @@
 # "rtmp://localhost/myapp/mystream"
 # /dev/video3
 
-Video_source: /dev/video3
+Video_source: "rtsp://127.0.0.1:8554/test"
 
 # the Orb Vocabulary File Path. Either .bin File or .txt File is Ok.
   

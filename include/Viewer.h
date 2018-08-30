@@ -64,6 +64,10 @@ public:
 private:
     void Draw3DJoints(cv::Mat Joints3D);
 
+    double AnglePoint2Plane(cv::Vec3f point3d, cv::Mat plane3d);
+
+    double AnglePoint2Point(cv::Vec3f point1, cv::Vec3f point_mid, cv::Vec3f point2);
+
     bool Stop();
 
 	bool mbReuse;

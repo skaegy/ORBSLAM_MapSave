@@ -95,6 +95,11 @@ void Viewer::Run()
     pangolin::Var<double> distHipY("menu.HIP_C: Y", 0);
     pangolin::Var<double> distHipZ("menu.HIP_C: Z", 0);
 
+    pangolin::Var<double> angleLegR("menu.Right leg(rad)", 3.14, 0, 4.0);
+    pangolin::Var<double> angleLegL("menu.Left leg(rad)", 3.14, 0, 4.0);
+    pangolin::Var<double> angleFootR("menu.Right foot(rad)", 1.57, 0, 2.0);
+    pangolin::Var<double> angleFootL("menu.Left foot(rad)", 1.57, 0, 2.0);
+
     // Define Camera Render Object (for view / scene browsing)
     pangolin::OpenGlRenderState s_cam(
                 pangolin::ProjectionMatrix(1024,768,mViewpointF,mViewpointF,512,389,0.1,1000),
@@ -256,15 +261,57 @@ void Viewer::Run()
             if (mpOpDetector->mvJoints3DEKF.size()>0){
                 cv::Mat Joints3Dekf = mpOpDetector->mvJoints3DEKF.back();
 
+                // Show distance to hip center
                 cv::Vec3f hip_c = Joints3Dekf.at<cv::Vec3f>(8);
                 if (hip_c[2] > 0){
                     distHipX = Twc.m[12] + hip_c[0];
                     distHipY = Twc.m[13] + hip_c[1];
                     distHipZ = Twc.m[14] + hip_c[2];
                 }
+
+                // Show angles
+                // Knee R
+                if (Joints3Dekf.at<cv::Vec3f>(9)[2] > 0 &&
+                    Joints3Dekf.at<cv::Vec3f>(10)[2] > 0 &&
+                    Joints3Dekf.at<cv::Vec3f>(11)[2] > 0) {
+                    angleLegR = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(9),
+                                                 Joints3Dekf.at<cv::Vec3f>(10),
+                                                 Joints3Dekf.at<cv::Vec3f>(11));
+                }
+                // Knee L
+                if (Joints3Dekf.at<cv::Vec3f>(12)[2] > 0 &&
+                    Joints3Dekf.at<cv::Vec3f>(13)[2] > 0 &&
+                    Joints3Dekf.at<cv::Vec3f>(14)[2] > 0) {
+                    angleLegL = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(12),
+                                                 Joints3Dekf.at<cv::Vec3f>(13),
+                                                 Joints3Dekf.at<cv::Vec3f>(14));
+                }
+                // Foot R
+                if (Joints3Dekf.at<cv::Vec3f>(10)[2] > 0 &&
+                    Joints3Dekf.at<cv::Vec3f>(11)[2] > 0 &&
+                    Joints3Dekf.at<cv::Vec3f>(22)[2] > 0 &&
+                    Joints3Dekf.at<cv::Vec3f>(23)[2] > 0){
+
+                    cv::Vec3f FootR_mid = (Joints3Dekf.at<cv::Vec3f>(22) + Joints3Dekf.at<cv::Vec3f>(23));
+                    angleFootR = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(10),
+                                                 Joints3Dekf.at<cv::Vec3f>(11),
+                                                 FootR_mid*0.5);
+                }
+
+                // Foot L
+                if (Joints3Dekf.at<cv::Vec3f>(13)[2] > 0 &&
+                    Joints3Dekf.at<cv::Vec3f>(14)[2] > 0 &&
+                    Joints3Dekf.at<cv::Vec3f>(19)[2] > 0 &&
+                    Joints3Dekf.at<cv::Vec3f>(20)[2] > 0){
+                    cv::Vec3f FootL_mid = (Joints3Dekf.at<cv::Vec3f>(19) + Joints3Dekf.at<cv::Vec3f>(20));
+                    angleFootL = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(13),
+                                                  Joints3Dekf.at<cv::Vec3f>(14),
+                                                  FootL_mid*0.5);
+                }
+
                 Draw3DJoints(Joints3Dekf);
             }
-
+            /*
             if (mpOpDetector->mvJoints3Draw.size()>0){
                 cv::Mat Joints3Draw = mpOpDetector->mvJoints3Draw.back() - 1;
                 Draw3DJoints(Joints3Draw);
@@ -274,7 +321,7 @@ void Viewer::Run()
                 cout << mpOpDetector->mvJoints3Draw.back() - mpOpDetector->mvJoints3DEKF.back() << endl;
             }
 
-
+            */
         }
 
         pangolin::FinishFrame();
@@ -361,9 +408,14 @@ void Viewer::Draw3DJoints(cv::Mat Joints3D) {
     for ( int i=0; i < Joints3D.cols; i++){
         // No face
         if (channels[2].at<float>(0,i) > 0 && (i < 15 || i > 18))
+            /*
             glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(i) + Twc.m[1] * channels[1].at<float>(i) + Twc.m[2] * channels[2].at<float>(i),
                        Twc.m[13] + Twc.m[4] * channels[0].at<float>(i) + Twc.m[5] * channels[1].at<float>(i) + Twc.m[6] * channels[2].at<float>(i),
                        Twc.m[14] + Twc.m[8] * channels[0].at<float>(i) + Twc.m[9] * channels[1].at<float>(i) + Twc.m[10] * channels[2].at<float>(i));
+                       */
+            glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(i) + Twc.m[4] * channels[1].at<float>(i) + Twc.m[8] * channels[2].at<float>(i),
+                       Twc.m[13] + Twc.m[1] * channels[0].at<float>(i) + Twc.m[5] * channels[1].at<float>(i) + Twc.m[9] * channels[2].at<float>(i),
+                       Twc.m[14] + Twc.m[2] * channels[0].at<float>(i) + Twc.m[6] * channels[1].at<float>(i) + Twc.m[10] * channels[2].at<float>(i));
     }
     glEnd();
 
@@ -377,16 +429,64 @@ void Viewer::Draw3DJoints(cv::Mat Joints3D) {
         int p1 = links[0][i];
         int p2 = links[1][i];
         if (channels[2].at<float>(p1) > 0 && channels[2].at<float>(p2) > 0){
+            /*
             glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(p1) + Twc.m[1] * channels[1].at<float>(p1) + Twc.m[2] * channels[2].at<float>(p1),
                        Twc.m[13] + Twc.m[4] * channels[0].at<float>(p1) + Twc.m[5] * channels[1].at<float>(p1) + Twc.m[6] * channels[2].at<float>(p1),
                        Twc.m[14] + Twc.m[8] * channels[0].at<float>(p1) + Twc.m[9] * channels[1].at<float>(p1) + Twc.m[10] * channels[2].at<float>(p1));
             glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(p2) + Twc.m[1] * channels[1].at<float>(p2) + Twc.m[2] * channels[2].at<float>(p2),
                        Twc.m[13] + Twc.m[4] * channels[0].at<float>(p2) + Twc.m[5] * channels[1].at<float>(p2) + Twc.m[6] * channels[2].at<float>(p2),
                        Twc.m[14] + Twc.m[8] * channels[0].at<float>(p2) + Twc.m[9] * channels[1].at<float>(p2) + Twc.m[10] * channels[2].at<float>(p2));
+                       */
+            glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(p1) + Twc.m[4] * channels[1].at<float>(p1) + Twc.m[8] * channels[2].at<float>(p1),
+                       Twc.m[13] + Twc.m[1] * channels[0].at<float>(p1) + Twc.m[5] * channels[1].at<float>(p1) + Twc.m[9] * channels[2].at<float>(p1),
+                       Twc.m[14] + Twc.m[2] * channels[0].at<float>(p1) + Twc.m[6] * channels[1].at<float>(p1) + Twc.m[10] * channels[2].at<float>(p1));
+            glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(p2) + Twc.m[4] * channels[1].at<float>(p2) + Twc.m[8] * channels[2].at<float>(p2),
+                       Twc.m[13] + Twc.m[1] * channels[0].at<float>(p2) + Twc.m[5] * channels[1].at<float>(p2) + Twc.m[9] * channels[2].at<float>(p2),
+                       Twc.m[14] + Twc.m[2] * channels[0].at<float>(p2) + Twc.m[6] * channels[1].at<float>(p2) + Twc.m[10] * channels[2].at<float>(p2));
         }
     }
     glEnd();
 
+}
+
+double Viewer::AnglePoint2Plane(cv::Vec3f point3d, cv::Mat plane3d){
+    double beta = 0.0;
+
+    cv::Vec3f planeVec1 = plane3d.at<cv::Vec3f>(1) - plane3d.at<cv::Vec3f>(0);
+    planeVec1 = planeVec1 / (cv::norm(planeVec1) + 1e-23);
+    cv::Vec3f planeVec2 = plane3d.at<cv::Vec3f>(2) - plane3d.at<cv::Vec3f>(0);
+    planeVec2 = planeVec2 / (cv::norm(planeVec2) + 1e-23);
+
+    if (point3d[2] > 0 && plane3d.at<cv::Vec3f>(0)[2] > 0 && plane3d.at<cv::Vec3f>(1)[2] && plane3d.at<cv::Vec3f>(2)[2]){
+        cv::Vec3f planeNormV = planeVec1.cross(planeVec2);
+        beta = AnglePoint2Point(point3d, plane3d.at<cv::Vec3f>(0), plane3d.at<cv::Vec3f>(0) + planeNormV);
+        beta = beta + 3.1415/2;
+    }
+
+    return beta;
+}
+
+double Viewer::AnglePoint2Point(cv::Vec3f point1, cv::Vec3f point_mid, cv::Vec3f point2){
+    double alpha = 0.0;
+    if(point1[2]>0 && point_mid[2]>0 && point2[2]>0){
+        cv::Vec3f l1 = point1 - point_mid;
+        cv::Vec3f l2 = point2 - point_mid;
+
+        auto innerProduct = l1.t()*l2;
+        double num = innerProduct[0];
+        double den = cv::norm(l1)*cv::norm(l2);
+
+        if (0 == den){
+            alpha = 0.0;
+        }
+        else{
+            alpha = acos(num/den);
+        }
+
+
+    }
+
+    return alpha;
 }
 
 void Viewer::RequestFinish()

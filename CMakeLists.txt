@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.12)
 project(ORB_SLAM2)
 
 IF(NOT CMAKE_BUILD_TYPE)
@@ -28,6 +28,7 @@ endif()
 
 LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
 
+set(OpenCV_DIR /opt/ros/kinetic/share/OpenCV-3.3.1-dev) # LINK TO OPENCV IN ROS
 find_package(OpenCV REQUIRED)
 find_package(OpenPose REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -94,13 +95,14 @@ ${realsense2_LIBRARIES}
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Monocular)
 
-add_executable(Monocular
-Examples/Monocular.cc )
+add_executable(Monocular Examples/Monocular.cc )
 target_link_libraries(Monocular ${PROJECT_NAME})
 
-add_executable(RGBD
-Examples/RGBD.cpp)
+add_executable(RGBD Examples/RGBD.cpp)
 target_link_libraries(RGBD ${PROJECT_NAME} realsense2 OpenMP::OpenMP_CXX)
+
+add_executable(RGDB_RTSP Examples/RGBD_RTSP.cpp)
+target_link_libraries(RGDB_RTSP ${PROJECT_NAME}  OpenMP::OpenMP_CXX)
 
 # Build tools
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/tools)
