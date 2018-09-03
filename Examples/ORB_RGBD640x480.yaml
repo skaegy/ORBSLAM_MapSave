@@ -22,12 +22,13 @@ Camera.k3: 0.000000
 
 Camera.width: 424
 Camera.height: 240
+Camera.Z: 0.45
 
 # Camera frames per second 
 Camera.fps: 15
 
 # IR projector baseline times fx (aprox.)
-Camera.bf: 40.0
+Camera.bf: 3.0
 
 # Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
 Camera.RGB: 1

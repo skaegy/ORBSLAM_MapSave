@@ -2,7 +2,7 @@
 // Created by skaegy on 07/08/18.
 //
 
-#include<iostream>
+#include <iostream>
 #include <vector>
 #include <list>
 #include <thread>
@@ -26,7 +26,7 @@ int main()
         cerr << "Failed to open setting file at: " << strSettingPath << endl;
         exit(-1);
     }
-    //TODO: Video streaming for RGB + Depth
+
     const string strORBvoc = fSettings["Orb_Vocabulary"];
     const string strCamSet = fSettings["Cam_Setting"];
     int ReuseMap = fSettings["is_ReuseMap"];
@@ -71,8 +71,6 @@ int main()
     rs2::align align(RS2_STREAM_COLOR);
     colorizer color_map;
 
-    decimation_filter dec_filter;
-    dec_filter.set_option(RS2_OPTION_FILTER_MAGNITUDE, 2);
     spatial_filter spat_filter;    //
     spat_filter.set_option(RS2_OPTION_FILTER_MAGNITUDE, 2);
     spat_filter.set_option(RS2_OPTION_FILTER_SMOOTH_ALPHA, 0.5);
@@ -108,6 +106,8 @@ int main()
             cv::Mat imRGB(cv::Size(IMG_WIDTH, IMG_HEIGHT), CV_8UC3, (void *) color.get_data(), cv::Mat::AUTO_STEP);
             cv::Mat imD(cv::Size(IMG_WIDTH, IMG_HEIGHT), CV_16UC1, (void *) depth.get_data(), cv::Mat::AUTO_STEP);
 
+            //cv::imwrite("1.png",imD);
+            //cv::imwrite("1.jpg",imRGB);
             processed_color.push_front(imRGB);
             processed_depth.push_front(imD);
             if (processed_color.size() > 2)

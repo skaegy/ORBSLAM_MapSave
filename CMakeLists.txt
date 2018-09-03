@@ -37,7 +37,7 @@ find_package(Boost  1.54.0  	     # Minimum or EXACT version e.g. 1.36.0
   REQUIRED             					# Fail with error if Boost is not found
   COMPONENTS serialization 				# Boost libraries by their canonical name
   )
-#set(realsense2_INCLUDE_DIRS "C:\\Program Files (x86)\\Intel RealSense SDK 2.0\\lib\\x64")          # TODO: Update this variable to correct path - folder where realsense2.lib is found
+#set(realsense2_INCLUDE_DIRS "C:\\Program Files (x86)\\Intel RealSense SDK 2.0\\lib\\x64")
 #set(DLL_DIR "C:\\Program Files (x86)\\Intel RealSense SDK 2.0\\bin\\x64")
 find_package(realsense2 REQUIRED)
 find_package(OpenPose REQUIRED)

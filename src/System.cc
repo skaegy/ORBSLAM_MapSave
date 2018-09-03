@@ -213,12 +213,12 @@ System::System(const string &strVocFile, const string &strSettingsFile,
     if(bUseViewer)
         mptViewer = new thread(&Viewer::Run, mpViewer);
 
-    mpTracker->SetViewer(mpViewer);
 
     // 10. Set pointers between threads
-    // Link threads (Tracker --> Local mapper & Loop Closer)
+    // Link threads (Tracker --> Local mapper & Loop Closer & Tracker)
     mpTracker->SetLocalMapper(mpLocalMapper);
     mpTracker->SetLoopClosing(mpLoopCloser);
+    mpTracker->SetViewer(mpViewer);
 
     // Link threads (Local Mapper --> Tracker & Loop Closer)
     mpLocalMapper->SetTracker(mpTracker);

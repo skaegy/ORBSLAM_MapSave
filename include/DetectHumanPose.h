@@ -70,6 +70,9 @@ private:
 
     cv::KalmanFilter KFInitialization(const int stateNum, const int measureNum, double wk, double vk, double pk);
 
+    //TODO
+    cv::Mat JointsFlipDetection(cv::Mat Joints2D, cv::Mat Joints2Dlast);
+
     bool Stop();
 
     bool CheckFinish();

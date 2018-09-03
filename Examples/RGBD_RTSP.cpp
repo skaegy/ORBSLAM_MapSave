@@ -14,7 +14,8 @@
 #include <fstream>
 #include <omp.h>
 #include <librealsense2/rs.hpp>
-#include <opencv2/core/core.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
 #include "System.h"
 
 using namespace std;
@@ -77,29 +78,38 @@ int main()
 
     std::thread LoadRealsense([&]() {
         while(1){
-
-
             if (capture.isOpened()){
-                // Read image from RTSP streaming
-                cv::Mat imCombine, imD_C3;
+                // Read image from RTSP streaming (imCombine is encoded)
+                cv::Mat imCombine;
                 std::vector<cv::Mat> channel(3);
                 capture >> imCombine;
 
-                /* Convert Depth (CV_8UC3) to (CV_16UC1)*/
+                // ========== Convert Depth (CV_8UC3) to (CV_16UC1) =========== //
                 cv::Mat imRGB(cv::Size(IMG_WIDTH, IMG_HEIGHT), CV_8UC3);
                 cv::Mat imD(cv::Size(IMG_WIDTH, IMG_HEIGHT), CV_16UC1);
-
+                cv::Mat imD_C3(cv::Size(IMG_WIDTH, IMG_HEIGHT), CV_8UC3);
+                // Copy color image and depth(colormap) image
                 imCombine.rowRange(0,IMG_HEIGHT).copyTo(imRGB);
                 imCombine.rowRange(IMG_HEIGHT,IMG_HEIGHT*2).copyTo(imD_C3);
 
+                cv::Mat imD_C3_Smooth;
+                cv::medianBlur ( imD_C3, imD_C3_Smooth, 7 );
+
+
                 for (int i = 0; i< IMG_HEIGHT; i++){
                     for (int j = 0; j < IMG_WIDTH; j++){
-                        cv::Vec3b mapData = imD_C3.at<cv::Vec3b>(i,j);
-                        ushort depth_z16;
-                        if (mapData(1) >= mapData(0) )
-                            depth_z16 = (ushort)mapData(0)*20 + (ushort)mapData(2);
-                        if (mapData(1) < mapData(0))
-                            depth_z16 = (ushort)mapData(0)*19 + (ushort)mapData(1);
+                        cv::Vec3b mapData = imD_C3_Smooth.at<cv::Vec3b>(i,j);
+                        // Decoding depth(colormap, CV_8UC3) ==> depth(Z16, shown in mm)
+                        ushort depth_z16 = (ushort)0;
+                        ushort high_81 = mapData(0);
+                        ushort high_82 = mapData(1);
+                        ushort low_8 = mapData(2);
+                        high_81 = high_81 << 5;
+                        high_82 = high_82 << 5;
+
+                        if ((double)high_81>180 && (double)high_82>180)
+                            depth_z16 = (ushort)((double)(high_81 + high_82)/2.0) + low_8;
+
                         imD.at<ushort>(i,j) = depth_z16;
                     }
                 }
@@ -107,9 +117,9 @@ int main()
                 // Store processed RGB & Depth in the std::list
                 processed_color.push_front(imRGB);
                 processed_depth.push_front(imD);
-                if (processed_color.size() > 1)
+                if (processed_color.size() > 2)
                     processed_color.pop_back();
-                if (processed_depth.size() > 1)
+                if (processed_depth.size() > 2)
                     processed_depth.pop_back();
             }
             else{

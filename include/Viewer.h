@@ -29,6 +29,7 @@
 #include "ArucoDetect.h"
 #include "DetectHumanPose.h"
 
+
 #include <mutex>
 
 namespace ORB_SLAM2
@@ -68,6 +69,18 @@ private:
 
     double AnglePoint2Point(cv::Vec3f point1, cv::Vec3f point_mid, cv::Vec3f point2);
 
+    cv::Mat DrawSkelFrontView(cv::Mat Joints3D, cv::Size ImgSize);
+
+    cv::Mat DrawSkelSideView(cv::Mat Joints3D, cv::Size ImgSize);
+
+    void Draw3Dtrj(std::vector<cv::Mat> Joints3D, int N_history);
+
+	void DrawReprojected2Dtrj(cv::Mat Img, std::vector<cv::Mat> Joints3D);
+
+    cv::Mat CalcHumanBodyCoord(cv::Vec3f HIP_R, cv::Vec3f HIP_C, cv::Vec3f HIP_L);
+
+    double CalcLinkLength(cv::Vec3f point1, cv::Vec3f point2);
+
     bool Stop();
 
 	bool mbReuse;
@@ -86,6 +99,8 @@ private:
     float mImageWidth, mImageHeight;
 
     float mViewpointX, mViewpointY, mViewpointZ, mViewpointF;
+
+    double mCamZ;
 
 	pangolin::OpenGlMatrix Twc;
 

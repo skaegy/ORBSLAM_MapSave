@@ -7,6 +7,7 @@
 # Source of video
 # "rtsp://127.0.0.1:8554/test"
 # "rtmp://localhost/myapp/mystream"
+# "rtsp://146.169.164.142:8554/test"
 # /dev/video3
 
 Video_source: "rtsp://127.0.0.1:8554/test"
@@ -21,7 +22,7 @@ Cam_Setting: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/ORB_RGBD6
 
 # Whether Run the ORB-SLAM2 System Using the Exsiting Map File (0 for no , 1 for yes).
 
-is_ReuseMap: 1
+is_ReuseMap: 0
 
 # the Exsiting Map File Path (if the above item is 0, this is unnessesary)
 
@@ -29,7 +30,7 @@ ReuseMap: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/Monocular/Sl
 
 # Whether detect human pose (0 for no, 1 for yes)
 
-is_DetectHuman: 1
+is_DetectHuman: 0
 
 # the Openpose parameters File Path
 

@@ -116,7 +116,7 @@ while(1){
                                   * 1e-9;
         const auto message = "Total time: "
                              + std::to_string(totalTimeSec ) + " seconds.";
-        cout << message << endl;
+        //cout << message << endl;
 
         // Pass the image to ARUCO marker detection system
         if (ARUCOStandBy)

@@ -45,6 +45,7 @@ Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer
 
     mImageWidth = fSettings["Camera.width"];
     mImageHeight = fSettings["Camera.height"];
+    mCamZ = fSettings["Camera.Z"];
     if(mImageWidth<1 || mImageHeight<1)
     {
         mImageWidth = 640;
@@ -107,9 +108,28 @@ void Viewer::Run()
                 );
 
     // Add named OpenGL viewport to window and provide 3D Handler
+    // 前两个参数（0.0, 1.0）表明宽度和面板纵向宽度和窗口大小相同
+    // 中间两个参数（pangolin::Attach::Pix(175), 1.0）表明右边所有部分用于显示图形
+    // 最后一个参数（-1024.0f/768.0f）为显示长宽比
     pangolin::View& d_cam = pangolin::CreateDisplay()
-            .SetBounds(0.0, 1.0, pangolin::Attach::Pix(175), 1.0, -1024.0f/768.0f)
+            .SetBounds(0.0, 1.0, 0.2, 1.0, -1024.0f/768.0f)
             .SetHandler(new pangolin::Handler3D(s_cam));
+
+    pangolin::View& d_img_orb = pangolin::Display("orb_slam")
+            .SetBounds(0,0.2,0.2, 0.4, 1024.0f/768.0f)
+            .SetLock(pangolin::LockLeft, pangolin::LockBottom);
+
+    pangolin::View& d_img_op = pangolin::Display("openpose_skeleton")
+            .SetBounds(0,0.2,0.4, 0.6, 1024.0f/768.0f)
+            .SetLock(pangolin::LockLeft, pangolin::LockBottom);
+
+    pangolin::View& d_img_frontSkel = pangolin::Display("frontview_skeleton")
+            .SetBounds(0,0.2,0.6, 0.8, 768.0f/768.0f)
+            .SetLock(pangolin::LockLeft, pangolin::LockBottom);
+
+    pangolin::View& d_img_sideSkel = pangolin::Display("sideview_skeleton")
+            .SetBounds(0,0.2,0.8, 1.0, 768.0f/768.0f)
+            .SetLock(pangolin::LockLeft, pangolin::LockBottom);
 
     // Add Global coordinate system
     pangolin::Renderable tree;
@@ -122,8 +142,8 @@ void Viewer::Run()
 
     Twc.SetIdentity();
 
-    cv::namedWindow("ORB-SLAM2: Current Frame");
-    cv::namedWindow("Openpose");
+    //cv::namedWindow("ORB-SLAM2: Current Frame");
+    //cv::namedWindow("Openpose");
 
     bool bFollow = true;
     bool bLocalizationMode = mbReuse;
@@ -193,9 +213,8 @@ void Viewer::Run()
         showPosY=Twc.m[13];
         showPosZ=Twc.m[14];
 
-        cv::Mat im = mpFrameDrawer->DrawFrame();
-
-        // Draw detected aruco markers
+        //--------- display ARUCO marker  ---------//
+        /*
         if (mbARUCODetect){
             vector<int> ids;
             ids = mpArucoDetector->msArucoDrawer.ids;
@@ -246,20 +265,16 @@ void Viewer::Run()
                 glEnd();
             }
         }
+*/
 
-        // Draw 2d Human pose
-        if(mbHumanPose){
-           if (mpOpDetector->mlRenderPoseImage.size()>0){
-               cv::Mat OpShow = mpOpDetector->mlRenderPoseImage.front();
-               cv::imshow("Openpose", OpShow);
-               cv::waitKey(1);
-           }
-        }
-
-        // Draw 3D human pose (RGB-D)
+        //--------- display 3D human pose  ---------//
         if(mbHumanPose && mSensor == 2){
             if (mpOpDetector->mvJoints3DEKF.size()>0){
                 cv::Mat Joints3Dekf = mpOpDetector->mvJoints3DEKF.back();
+                Draw3DJoints(Joints3Dekf);
+                std::vector<cv::Mat> mvJoints3DEKF = mpOpDetector->mvJoints3DEKF;
+                Draw3Dtrj(mvJoints3DEKF, 10);
+                cout << "============================================" << endl;
 
                 // Show distance to hip center
                 cv::Vec3f hip_c = Joints3Dekf.at<cv::Vec3f>(8);
@@ -309,40 +324,75 @@ void Viewer::Run()
                                                   FootL_mid*0.5);
                 }
 
-                Draw3DJoints(Joints3Dekf);
             }
-            /*
-            if (mpOpDetector->mvJoints3Draw.size()>0){
-                cv::Mat Joints3Draw = mpOpDetector->mvJoints3Draw.back() - 1;
-                Draw3DJoints(Joints3Draw);
-            }
+        }
 
-            if (mpOpDetector->mvJoints3Draw.size()>0 && mpOpDetector->mvJoints3DEKF.size()>0){
-                cout << mpOpDetector->mvJoints3Draw.back() - mpOpDetector->mvJoints3DEKF.back() << endl;
-            }
+        //--------- display 2D human pose  ---------//
+        if(mbHumanPose){
+            if (mpOpDetector->mlRenderPoseImage.size()>0){
+                cv::Mat OpShow = mpOpDetector->mlRenderPoseImage.front();
+                // display the image in opencv
+                //cv::imshow("Openpose", OpShow);
+                //cv::waitKey(1);
 
-            */
+                // display the image in opengl
+                pangolin::GlTexture imageTextureSkeleton(OpShow.cols,OpShow.rows,GL_RGB,false,0,GL_BGR,GL_UNSIGNED_BYTE);
+                imageTextureSkeleton.Upload(OpShow.data,GL_BGR,GL_UNSIGNED_BYTE);
+                d_img_op.Activate();
+                glColor3f(1.0,1.0,1.0);
+                imageTextureSkeleton.RenderToViewportFlipY();
+            }
+        }
+
+        //--------- display ORB-SLAM  ---------//
+        // display ORB-SLAM in opencv
+        //cv::imshow("ORB-SLAM2: Current Frame",im);
+        cv::Mat im = mpFrameDrawer->DrawFrame();
+        // display the image in opengl
+        pangolin::GlTexture imageTextureORB(im.cols,im.rows,GL_RGB,false,0,GL_BGR,GL_UNSIGNED_BYTE);
+        imageTextureORB.Upload(im.data,GL_BGR,GL_UNSIGNED_BYTE);
+        d_img_orb.Activate();
+        glColor3f(1.0,1.0,1.0);
+        imageTextureORB.RenderToViewportFlipY();
+
+        //--------- display skeleton of lower limb from frontview  ---------//
+        if(mbHumanPose && mSensor == 2) {
+            if (mpOpDetector->mvJoints3DEKF.size() > 0) {
+                pangolin::GlTexture imageTextureFrontSkel(im.cols*0.5, im.rows, GL_RGB, false, 0, GL_BGR, GL_UNSIGNED_BYTE);
+                cv::Mat Joints3Dekf = mpOpDetector->mvJoints3DEKF.back();
+                cv::Size ImgSize(im.cols*0.5, im.rows);
+                cv::Mat SkelFrontView = DrawSkelFrontView(Joints3Dekf, ImgSize);
+                imageTextureFrontSkel.Upload(SkelFrontView.data, GL_BGR, GL_UNSIGNED_BYTE);
+                d_img_frontSkel.Activate();
+                glColor3f(1.0, 1.0, 1.0);
+                imageTextureFrontSkel.RenderToViewportFlipY();
+
+                pangolin::GlTexture imageTextureSideSkel(im.cols*0.5, im.rows, GL_RGB, false, 0, GL_BGR, GL_UNSIGNED_BYTE);
+                cv::Mat SkelSideView = DrawSkelSideView(Joints3Dekf, ImgSize);
+                imageTextureSideSkel.Upload(SkelSideView.data, GL_BGR, GL_UNSIGNED_BYTE);
+                d_img_sideSkel.Activate();
+                glColor3f(1.0, 1.0, 1.0);
+                imageTextureSideSkel.RenderToViewportFlipY();
+            }
         }
 
         pangolin::FinishFrame();
+
+        //--------- calculate wait time according to framerate ---------//
         const auto now = std::chrono::high_resolution_clock::now();
         const auto totalTimeSec =
                 (double) std::chrono::duration_cast<std::chrono::nanoseconds>(now - time_begin).count()
                 * 1e-6;
         const auto message = "One frame time: "
                              + std::to_string(totalTimeSec - lastTime) + " milliseconds.";
-
-        //cout << message << endl;
-
-        // Draw ORB-SLAM
-        cv::imshow("ORB-SLAM2: Current Frame",im);
         double wait_ms = (mT + lastTime - totalTimeSec);
+        lastTime = totalTimeSec;
         if ( wait_ms > 1.0)
             cv::waitKey((int)wait_ms);
         else
             cv::waitKey(1);
 
-        lastTime = totalTimeSec;
+
         if(menuReset)
         {
             menuShowGraph = true;
@@ -401,18 +451,13 @@ void Viewer::Draw3DJoints(cv::Mat Joints3D) {
     // Draw point and links the 3D point clound
     glPointSize(10);
     glBegin(GL_POINTS);
-    glColor3f(0.2,0.2,0.0);
+    glColor3f(0.2f, 0.2f, 0.f);
     vector<cv::Mat> channels(3);
     split(Joints3D, channels);
 
     for ( int i=0; i < Joints3D.cols; i++){
         // No face
         if (channels[2].at<float>(0,i) > 0 && (i < 15 || i > 18))
-            /*
-            glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(i) + Twc.m[1] * channels[1].at<float>(i) + Twc.m[2] * channels[2].at<float>(i),
-                       Twc.m[13] + Twc.m[4] * channels[0].at<float>(i) + Twc.m[5] * channels[1].at<float>(i) + Twc.m[6] * channels[2].at<float>(i),
-                       Twc.m[14] + Twc.m[8] * channels[0].at<float>(i) + Twc.m[9] * channels[1].at<float>(i) + Twc.m[10] * channels[2].at<float>(i));
-                       */
             glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(i) + Twc.m[4] * channels[1].at<float>(i) + Twc.m[8] * channels[2].at<float>(i),
                        Twc.m[13] + Twc.m[1] * channels[0].at<float>(i) + Twc.m[5] * channels[1].at<float>(i) + Twc.m[9] * channels[2].at<float>(i),
                        Twc.m[14] + Twc.m[2] * channels[0].at<float>(i) + Twc.m[6] * channels[1].at<float>(i) + Twc.m[10] * channels[2].at<float>(i));
@@ -429,14 +474,6 @@ void Viewer::Draw3DJoints(cv::Mat Joints3D) {
         int p1 = links[0][i];
         int p2 = links[1][i];
         if (channels[2].at<float>(p1) > 0 && channels[2].at<float>(p2) > 0){
-            /*
-            glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(p1) + Twc.m[1] * channels[1].at<float>(p1) + Twc.m[2] * channels[2].at<float>(p1),
-                       Twc.m[13] + Twc.m[4] * channels[0].at<float>(p1) + Twc.m[5] * channels[1].at<float>(p1) + Twc.m[6] * channels[2].at<float>(p1),
-                       Twc.m[14] + Twc.m[8] * channels[0].at<float>(p1) + Twc.m[9] * channels[1].at<float>(p1) + Twc.m[10] * channels[2].at<float>(p1));
-            glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(p2) + Twc.m[1] * channels[1].at<float>(p2) + Twc.m[2] * channels[2].at<float>(p2),
-                       Twc.m[13] + Twc.m[4] * channels[0].at<float>(p2) + Twc.m[5] * channels[1].at<float>(p2) + Twc.m[6] * channels[2].at<float>(p2),
-                       Twc.m[14] + Twc.m[8] * channels[0].at<float>(p2) + Twc.m[9] * channels[1].at<float>(p2) + Twc.m[10] * channels[2].at<float>(p2));
-                       */
             glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(p1) + Twc.m[4] * channels[1].at<float>(p1) + Twc.m[8] * channels[2].at<float>(p1),
                        Twc.m[13] + Twc.m[1] * channels[0].at<float>(p1) + Twc.m[5] * channels[1].at<float>(p1) + Twc.m[9] * channels[2].at<float>(p1),
                        Twc.m[14] + Twc.m[2] * channels[0].at<float>(p1) + Twc.m[6] * channels[1].at<float>(p1) + Twc.m[10] * channels[2].at<float>(p1));
@@ -449,6 +486,27 @@ void Viewer::Draw3DJoints(cv::Mat Joints3D) {
 
 }
 
+//TODO
+void Viewer::Draw3Dtrj(std::vector<cv::Mat> Joints3D, int N_history){
+    glLineWidth(3);
+    glColor3f(0.5,0.0,0.5);
+    int pLowerLimb[13] = {8,9,10,11,12,13,14,19,20,21,22,23,24};
+    int N_store = Joints3D.size();
+
+    if (N_store >= N_history){
+
+        for (std::vector<cv::Mat>::iterator it = Joints3D.begin(); it != Joints3D.begin() + N_history; ++it){
+            cout << *it << endl;
+        }
+
+    }
+    else{
+        for (std::vector<cv::Mat>::iterator it = Joints3D.begin(); it != Joints3D.end(); ++it){
+            cout << *it << endl;
+        }
+    }
+
+}
 double Viewer::AnglePoint2Plane(cv::Vec3f point3d, cv::Mat plane3d){
     double beta = 0.0;
 
@@ -489,45 +547,222 @@ double Viewer::AnglePoint2Point(cv::Vec3f point1, cv::Vec3f point_mid, cv::Vec3f
     return alpha;
 }
 
-void Viewer::RequestFinish()
-{
+cv::Mat Viewer::DrawSkelFrontView(cv::Mat Joints3D, cv::Size ImgSize){
+    cv::Mat SkelFrontView = cv::Mat::zeros(ImgSize, CV_8UC3) + cv::Scalar(255,255,255);
+    //SkelFrontView.convertTo(SkelFrontView, CV_8UC3);
+    int floorBound = ImgSize.height * 0.9;
+    int HeigthPixel = ImgSize.height * 0.8;
+    std::vector<cv::Mat> FloorChannels(3);
+    cv::Mat FloorC1 = cv::Mat::ones(ImgSize.height - floorBound , ImgSize.width, CV_8UC1);
+    FloorC1.convertTo(FloorC1, CV_8UC1, 200); FloorC1.copyTo(FloorChannels[0]);
+    cv::Mat FloorC2 = cv::Mat::ones(ImgSize.height - floorBound , ImgSize.width, CV_8UC1);
+    FloorC2.convertTo(FloorC2, CV_8UC1, 200); FloorC2.copyTo(FloorChannels[1]);
+    cv::Mat FloorC3 = cv::Mat::ones(ImgSize.height - floorBound , ImgSize.width, CV_8UC1);
+    FloorC3.convertTo(FloorC3, CV_8UC1, 200); FloorC3.copyTo(FloorChannels[2]);
+
+    cv::Mat FloorRender;
+    cv::merge(FloorChannels, FloorRender);
+
+    FloorRender.copyTo( SkelFrontView.rowRange(floorBound,ImgSize.height));
+
+    if (Joints3D.at<cv::Vec3f>(8)[2] * Joints3D.at<cv::Vec3f>(9)[2] * Joints3D.at<cv::Vec3f>(12)[2]
+            * Joints3D.at<cv::Vec3f>(10)[2] * Joints3D.at<cv::Vec3f>(13)[2]
+            * Joints3D.at<cv::Vec3f>(11)[2] * Joints3D.at<cv::Vec3f>(14)[2]){
+        int links[2][12] = {{8 ,8,10,10,22,23,24,13,13,19,20,21},
+                            {9,12, 9,11,11,11,11,12,14,14,14,14}};
+        cv::Mat HBcoord = CalcHumanBodyCoord(Joints3D.at<cv::Vec3f>(9), Joints3D.at<cv::Vec3f>(8), Joints3D.at<cv::Vec3f>(12));
+        cv::Mat SHOWcoord = cv::Mat::eye(3, 3, CV_32FC1);
+        //SHOWcoord.at<float>(2,2) = 1.0f;
+
+        cv::Mat Rot = SHOWcoord*HBcoord.t();
+        cv::Mat Joints3D_copy = Joints3D.clone();
+        cv::Mat Joints3D_Mat(25, 3, CV_32FC1, (void *)Joints3D_copy.data, cv::Mat::AUTO_STEP);
+        Joints3D_Mat = Joints3D_Mat*Rot.t();
+
+        double delta_x = Joints3D_Mat.at<cv::Vec3f>(8)[0];
+
+        for (int i = 0; i < 12; i++){
+            cv::Vec3f jStart, jEnd;
+            jStart = Joints3D_Mat.at<cv::Vec3f>(links[0][i]);
+            jEnd = Joints3D_Mat.at<cv::Vec3f>(links[1][i]);
+            cv::Point2d jStartPlot, jEndPlot;
+            ///When these two joints are both detected
+            if (Joints3D.at<cv::Vec3f>(links[0][i])[2] > 0 && Joints3D.at<cv::Vec3f>(links[1][i])[2] > 0){
+                jStartPlot.x = (jStart[0] - delta_x) * HeigthPixel/(2*mCamZ)
+                        + SkelFrontView.cols/2; // Mov the x-axis of hip center as the center of image
+                jEndPlot.x   = (jEnd[0]   - delta_x) * HeigthPixel/(2*mCamZ)
+                         + SkelFrontView.cols/2; // Mov the x-axis of hip center as the center of image
+                if (jStartPlot.x < 0)
+                    jStartPlot.x = 0;
+                if (jStartPlot.x > SkelFrontView.cols)
+                    jStartPlot.x = SkelFrontView.cols;
+                if (jEndPlot.x < 0)
+                    jEndPlot.x = 0;
+                if (jEndPlot.x > SkelFrontView.cols)
+                    jEndPlot.x = SkelFrontView.cols;
+
+                jStartPlot.y = SkelFrontView.rows - abs(jStart[1]-mCamZ) * HeigthPixel/ (2.2*mCamZ);
+                jEndPlot.y =   SkelFrontView.rows - abs(jEnd[1]-mCamZ)   * HeigthPixel/ (2.2*mCamZ);
+                if (jStartPlot.y < 0)
+                    jStartPlot.y = 0;
+                if (jStartPlot.y > floorBound)
+                    jStartPlot.y = floorBound;
+                if (jEndPlot.y < 0)
+                    jEndPlot.y = 0;
+                if (jEndPlot.y > floorBound)
+                    jEndPlot.y = floorBound;
+                cv::circle(SkelFrontView, jStartPlot, 4, cv::Scalar(0,0,0), 5);
+                cv::circle(SkelFrontView, jEndPlot, 4, cv::Scalar(0,0,0), 5);
+                cv::line(SkelFrontView, jStartPlot, jEndPlot, cv::Scalar(255-i*10, i*20, 255-i*20), 10);
+            }
+        }
+    }
+
+    return SkelFrontView;
+}
+
+cv::Mat Viewer::DrawSkelSideView(cv::Mat Joints3D, cv::Size ImgSize){
+    cv::Mat SkelSideView = cv::Mat::zeros(ImgSize, CV_8UC3) + cv::Scalar(255,255,255);
+
+    int floorBound = ImgSize.height * 0.9;
+    int HeigthPixel = ImgSize.height * 0.8;
+    std::vector<cv::Mat> FloorChannels(3);
+    cv::Mat FloorC1 = cv::Mat::ones(ImgSize.height - floorBound , ImgSize.width, CV_8UC1);
+    FloorC1.convertTo(FloorC1, CV_8UC1, 200); FloorC1.copyTo(FloorChannels[0]);
+    cv::Mat FloorC2 = cv::Mat::ones(ImgSize.height - floorBound , ImgSize.width, CV_8UC1);
+    FloorC2.convertTo(FloorC2, CV_8UC1, 200); FloorC2.copyTo(FloorChannels[1]);
+    cv::Mat FloorC3 = cv::Mat::ones(ImgSize.height - floorBound , ImgSize.width, CV_8UC1);
+    FloorC3.convertTo(FloorC3, CV_8UC1, 200); FloorC3.copyTo(FloorChannels[2]);
+
+    cv::Mat FloorRender;
+    cv::merge(FloorChannels, FloorRender);
+
+    FloorRender.copyTo( SkelSideView.rowRange(floorBound,ImgSize.height));
+
+    if (Joints3D.at<cv::Vec3f>(8)[2] * Joints3D.at<cv::Vec3f>(9)[2] * Joints3D.at<cv::Vec3f>(12)[2]
+        * Joints3D.at<cv::Vec3f>(10)[2] * Joints3D.at<cv::Vec3f>(13)[2]
+        * Joints3D.at<cv::Vec3f>(11)[2] * Joints3D.at<cv::Vec3f>(14)[2]){
+        int links[2][12] = {{8 ,8,10,10,22,23,24,13,13,19,20,21},
+                            {9,12, 9,11,11,11,11,12,14,14,14,14}};
+        cv::Mat HBcoord = CalcHumanBodyCoord(Joints3D.at<cv::Vec3f>(9), Joints3D.at<cv::Vec3f>(8), Joints3D.at<cv::Vec3f>(12));
+        float tmp_showCoord[][3]={0,0,1,
+                                0,1,0,
+                                1,0,0};
+        cv::Mat SHOWcoord(3, 3, CV_32FC1,(void *)tmp_showCoord, cv::Mat::AUTO_STEP);
+
+
+        cv::Mat Rot = SHOWcoord*HBcoord.t();
+        cv::Mat Joints3D_copy = Joints3D.clone();
+        cv::Mat Joints3D_Mat(25, 3, CV_32FC1, (void *)Joints3D_copy.data, cv::Mat::AUTO_STEP);
+        Joints3D_Mat = Joints3D_Mat*Rot.t();
+        double delta_x = Joints3D_Mat.at<cv::Vec3f>(8)[0];
+
+        for (int i = 0; i < 12; i++){
+            cv::Vec3f jStart, jEnd;
+            jStart = Joints3D_Mat.at<cv::Vec3f>(links[0][i]);
+            jEnd = Joints3D_Mat.at<cv::Vec3f>(links[1][i]);
+            cv::Point2d jStartPlot, jEndPlot;
+            ///When these two joints are both detected
+            if (Joints3D.at<cv::Vec3f>(links[0][i])[2] > 0 && Joints3D.at<cv::Vec3f>(links[1][i])[2] > 0){
+                jStartPlot.x = (jStart[0] - delta_x) * HeigthPixel/(2*mCamZ)
+                               + SkelSideView.cols/2; // Mov the x-axis of hip center as the center of image
+                jEndPlot.x   = (jEnd[0]   - delta_x) * HeigthPixel/(2*mCamZ)
+                               + SkelSideView.cols/2; // Mov the x-axis of hip center as the center of image
+                if (jStartPlot.x < 0)
+                    jStartPlot.x = 0;
+                if (jStartPlot.x > SkelSideView.cols)
+                    jStartPlot.x = SkelSideView.cols;
+                if (jEndPlot.x < 0)
+                    jEndPlot.x = 0;
+                if (jEndPlot.x > SkelSideView.cols)
+                    jEndPlot.x = SkelSideView.cols;
+
+                jStartPlot.y = SkelSideView.rows - abs(jStart[1]-mCamZ) * HeigthPixel/ (2.2*mCamZ);
+                jEndPlot.y =   SkelSideView.rows - abs(jEnd[1]-mCamZ)   * HeigthPixel/ (2.2*mCamZ);
+                if (jStartPlot.y < 0)
+                    jStartPlot.y = 0;
+                if (jStartPlot.y > floorBound)
+                    jStartPlot.y = floorBound;
+                if (jEndPlot.y < 0)
+                    jEndPlot.y = 0;
+                if (jEndPlot.y > floorBound)
+                    jEndPlot.y = floorBound;
+                cv::circle(SkelSideView, jStartPlot, 4, cv::Scalar(0,0,0), 5);
+                cv::circle(SkelSideView, jEndPlot, 4, cv::Scalar(0,0,0), 5);
+                cv::line(SkelSideView, jStartPlot, jEndPlot, cv::Scalar(255-i*10, i*20, 255-i*20), 10);
+            }
+        }
+    }
+
+    return SkelSideView;
+}
+
+cv::Mat Viewer::CalcHumanBodyCoord(cv::Vec3f HIP_R, cv::Vec3f HIP_C, cv::Vec3f HIP_L){
+    cv::Mat HBcoord = cv::Mat::eye(3, 3, CV_32FC1);
+    cv::Vec3f v1, v2, axis_z, axis_x;
+    cv::Vec3f axis_y(0.f, 1.f, 0.f);
+
+    v1 = HIP_R - HIP_C;  v1 = v1 / (cv::norm(v1) + 1e-23);
+    v2 = HIP_L - HIP_R;  v2 = v2 / (cv::norm(v2) + 1e-23);
+    axis_z = v2.cross(axis_y);       axis_z = axis_z / (cv::norm(axis_z) + 1e-23);
+    if (axis_z[2] > 0)
+        axis_z = - axis_z;
+    axis_x = axis_y.cross(axis_z);   axis_x = axis_x / (cv::norm(axis_x) + 1e-23);
+    for (int i = 0; i < 3; i++){
+        for (int j = 0; j < 3; j++){
+            if (j == 0)
+                HBcoord.at<float>(i,j) = axis_x[i];
+            if (j == 1)
+                HBcoord.at<float>(i,j) = axis_y[i];
+            if (j == 2)
+                HBcoord.at<float>(i,j) = axis_z[i];
+        }
+    }
+
+    return HBcoord;
+}
+
+double Viewer::CalcLinkLength(cv::Vec3f point1, cv::Vec3f point2){
+    double L = 0;
+
+    double squareSum = pow(point1[0]-point2[0],2) + pow(point1[1]-point2[1],2) + pow(point1[2]-point2[2],2);
+    L = sqrt(squareSum);
+
+    return L;
+}
+
+void Viewer::RequestFinish(){
     unique_lock<mutex> lock(mMutexFinish);
     mbFinishRequested = true;
 }
 
-bool Viewer::CheckFinish()
-{
+bool Viewer::CheckFinish(){
     unique_lock<mutex> lock(mMutexFinish);
     return mbFinishRequested;
 }
 
-void Viewer::SetFinish()
-{
+void Viewer::SetFinish(){
     unique_lock<mutex> lock(mMutexFinish);
     mbFinished = true;
 }
 
-bool Viewer::isFinished()
-{
+bool Viewer::isFinished(){
     unique_lock<mutex> lock(mMutexFinish);
     return mbFinished;
 }
 
-void Viewer::RequestStop()
-{
+void Viewer::RequestStop(){
     unique_lock<mutex> lock(mMutexStop);
     if(!mbStopped)
         mbStopRequested = true;
 }
 
-bool Viewer::isStopped()
-{
+bool Viewer::isStopped(){
     unique_lock<mutex> lock(mMutexStop);
     return mbStopped;
 }
 
-bool Viewer::Stop()
-{
+bool Viewer::Stop(){
     unique_lock<mutex> lock(mMutexStop);
     unique_lock<mutex> lock2(mMutexFinish);
 
@@ -544,8 +779,7 @@ bool Viewer::Stop()
 
 }
 
-void Viewer::Release()
-{
+void Viewer::Release(){
     unique_lock<mutex> lock(mMutexStop);
     mbStopped = false;
 }
