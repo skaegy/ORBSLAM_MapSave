@@ -22,7 +22,7 @@ Camera.k3: 0.000000
 
 Camera.width: 424
 Camera.height: 240
-Camera.Z: 0.45
+Camera.Z: 0.4
 
 # Camera frames per second 
 Camera.fps: 15
@@ -72,6 +72,9 @@ Viewer.ViewpointX: 0
 Viewer.ViewpointY: -0.7
 Viewer.ViewpointZ: -1.8
 Viewer.ViewpointF: 500
+Viewer.TrjHistory: 10
+Viewer.WindowSizeX: 1080.0
+Viewer.WindowSizeY: 1920.0
 
 #--------------------------------------------------------------------------------------------
 # ARUCO Parameters

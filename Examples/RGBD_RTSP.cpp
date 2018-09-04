@@ -95,7 +95,6 @@ int main()
                 cv::Mat imD_C3_Smooth;
                 cv::medianBlur ( imD_C3, imD_C3_Smooth, 7 );
 
-
                 for (int i = 0; i< IMG_HEIGHT; i++){
                     for (int j = 0; j < IMG_WIDTH; j++){
                         cv::Vec3b mapData = imD_C3_Smooth.at<cv::Vec3b>(i,j);

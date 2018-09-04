@@ -69,13 +69,11 @@ private:
 
     double AnglePoint2Point(cv::Vec3f point1, cv::Vec3f point_mid, cv::Vec3f point2);
 
-    cv::Mat DrawSkelFrontView(cv::Mat Joints3D, cv::Size ImgSize);
-
-    cv::Mat DrawSkelSideView(cv::Mat Joints3D, cv::Size ImgSize);
+    cv::Mat DrawSkel2DView(cv::Mat Joints3D, cv::Size ImgSize, bool FrontViewFlag);
 
     void Draw3Dtrj(std::vector<cv::Mat> Joints3D, int N_history);
 
-	void DrawReprojected2Dtrj(cv::Mat Img, std::vector<cv::Mat> Joints3D);
+	void Draw2Dtrj(std::vector<cv::Mat> Joints3D, cv::Mat Img, bool FrontViewFlag);
 
     cv::Mat CalcHumanBodyCoord(cv::Vec3f HIP_R, cv::Vec3f HIP_C, cv::Vec3f HIP_L);
 
@@ -95,11 +93,10 @@ private:
 
     // 1/fps in ms
     double mT;
-    int mSensor;
+    int mSensor, mTrjHistory;
     float mImageWidth, mImageHeight;
-
     float mViewpointX, mViewpointY, mViewpointZ, mViewpointF;
-
+    float mWindowSizeX, mWindowSizeY;
     double mCamZ;
 
 	pangolin::OpenGlMatrix Twc;

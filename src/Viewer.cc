@@ -56,6 +56,10 @@ Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer
     mViewpointY = fSettings["Viewer.ViewpointY"];
     mViewpointZ = fSettings["Viewer.ViewpointZ"];
     mViewpointF = fSettings["Viewer.ViewpointF"];
+    mTrjHistory = fSettings["Viewer.TrjHistory"];
+    mWindowSizeX = fSettings["Viewer.WindowSizeX"];
+    mWindowSizeY = fSettings["Viewer.WindowSizeY"];
+
     mbReuse = bReuse;
     mbHumanPose = bHumanPose;
     mbARUCODetect = bARUCODetect;
@@ -65,7 +69,7 @@ void Viewer::Run()
 {
     mbFinished = false;
 
-    pangolin::CreateWindowAndBind("ORB-SLAM2: Map Viewer",1024,768);
+    pangolin::CreateWindowAndBind("ORB-SLAM2: Map Viewer",mWindowSizeY,mWindowSizeX);
 
     // 3D Mouse handler requires depth testing to be enabled
     glEnable(GL_DEPTH_TEST);
@@ -74,7 +78,7 @@ void Viewer::Run()
     glEnable (GL_BLEND);
     glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    pangolin::CreatePanel("menu").SetBounds(0.0,1.0,0.0,pangolin::Attach::Pix(200));
+    pangolin::CreatePanel("menu").SetBounds(0.0,1.0,0.0,0.1);
     pangolin::Var<bool> menuFollowCamera("menu.Follow Camera",true,true);
     pangolin::Var<bool> menuShowPoints("menu.Show Points",true,true);
     pangolin::Var<bool> menuShowKeyFrames("menu.Show KeyFrames",true,true);
@@ -103,7 +107,7 @@ void Viewer::Run()
 
     // Define Camera Render Object (for view / scene browsing)
     pangolin::OpenGlRenderState s_cam(
-                pangolin::ProjectionMatrix(1024,768,mViewpointF,mViewpointF,512,389,0.1,1000),
+                pangolin::ProjectionMatrix(mWindowSizeY,mWindowSizeX,mViewpointF,mViewpointF,960,540,0.1,1000),
                 pangolin::ModelViewLookAt(mViewpointX,mViewpointY,mViewpointZ, 0,0,0,0.0,-1.0, 0.0)
                 );
 
@@ -112,23 +116,23 @@ void Viewer::Run()
     // 中间两个参数（pangolin::Attach::Pix(175), 1.0）表明右边所有部分用于显示图形
     // 最后一个参数（-1024.0f/768.0f）为显示长宽比
     pangolin::View& d_cam = pangolin::CreateDisplay()
-            .SetBounds(0.0, 1.0, 0.2, 1.0, -1024.0f/768.0f)
+            .SetBounds(0.4, 1.0, 0.1, 0.7, -mWindowSizeY/mWindowSizeX)
             .SetHandler(new pangolin::Handler3D(s_cam));
 
     pangolin::View& d_img_orb = pangolin::Display("orb_slam")
-            .SetBounds(0,0.2,0.2, 0.4, 1024.0f/768.0f)
-            .SetLock(pangolin::LockLeft, pangolin::LockBottom);
+            .SetBounds(0.67, 1.0, 0.7, 1.0, mWindowSizeY/mWindowSizeX);
+            //.SetLock(pangolin::LockLeft, pangolin::LockBottom);
 
     pangolin::View& d_img_op = pangolin::Display("openpose_skeleton")
-            .SetBounds(0,0.2,0.4, 0.6, 1024.0f/768.0f)
-            .SetLock(pangolin::LockLeft, pangolin::LockBottom);
+            .SetBounds(0.33, 0.66, 0.7,1.0, mWindowSizeY/mWindowSizeX);
+            //.SetLock(pangolin::LockLeft, pangolin::LockBottom);
 
     pangolin::View& d_img_frontSkel = pangolin::Display("frontview_skeleton")
-            .SetBounds(0,0.2,0.6, 0.8, 768.0f/768.0f)
+            .SetBounds(0, 0.4, 0.1, 0.28)
             .SetLock(pangolin::LockLeft, pangolin::LockBottom);
 
     pangolin::View& d_img_sideSkel = pangolin::Display("sideview_skeleton")
-            .SetBounds(0,0.2,0.8, 1.0, 768.0f/768.0f)
+            .SetBounds(0, 0.4, 0.32, 0.5)
             .SetLock(pangolin::LockLeft, pangolin::LockBottom);
 
     // Add Global coordinate system
@@ -273,15 +277,13 @@ void Viewer::Run()
                 cv::Mat Joints3Dekf = mpOpDetector->mvJoints3DEKF.back();
                 Draw3DJoints(Joints3Dekf);
                 std::vector<cv::Mat> mvJoints3DEKF = mpOpDetector->mvJoints3DEKF;
-                Draw3Dtrj(mvJoints3DEKF, 10);
-                cout << "============================================" << endl;
+                Draw3Dtrj(mvJoints3DEKF, mTrjHistory);
+
 
                 // Show distance to hip center
                 cv::Vec3f hip_c = Joints3Dekf.at<cv::Vec3f>(8);
                 if (hip_c[2] > 0){
-                    distHipX = Twc.m[12] + hip_c[0];
-                    distHipY = Twc.m[13] + hip_c[1];
-                    distHipZ = Twc.m[14] + hip_c[2];
+                    distHipX = Twc.m[12] + hip_c[0]; distHipY = Twc.m[13] + hip_c[1]; distHipZ = Twc.m[14] + hip_c[2];
                 }
 
                 // Show angles
@@ -289,41 +291,25 @@ void Viewer::Run()
                 if (Joints3Dekf.at<cv::Vec3f>(9)[2] > 0 &&
                     Joints3Dekf.at<cv::Vec3f>(10)[2] > 0 &&
                     Joints3Dekf.at<cv::Vec3f>(11)[2] > 0) {
-                    angleLegR = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(9),
-                                                 Joints3Dekf.at<cv::Vec3f>(10),
-                                                 Joints3Dekf.at<cv::Vec3f>(11));
+                    angleLegR = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(9),Joints3Dekf.at<cv::Vec3f>(10),Joints3Dekf.at<cv::Vec3f>(11));
                 }
                 // Knee L
-                if (Joints3Dekf.at<cv::Vec3f>(12)[2] > 0 &&
-                    Joints3Dekf.at<cv::Vec3f>(13)[2] > 0 &&
-                    Joints3Dekf.at<cv::Vec3f>(14)[2] > 0) {
-                    angleLegL = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(12),
-                                                 Joints3Dekf.at<cv::Vec3f>(13),
-                                                 Joints3Dekf.at<cv::Vec3f>(14));
+                if (Joints3Dekf.at<cv::Vec3f>(12)[2] > 0 &&Joints3Dekf.at<cv::Vec3f>(13)[2] > 0 &&Joints3Dekf.at<cv::Vec3f>(14)[2] > 0) {
+                    angleLegL = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(12),Joints3Dekf.at<cv::Vec3f>(13),Joints3Dekf.at<cv::Vec3f>(14));
                 }
                 // Foot R
-                if (Joints3Dekf.at<cv::Vec3f>(10)[2] > 0 &&
-                    Joints3Dekf.at<cv::Vec3f>(11)[2] > 0 &&
-                    Joints3Dekf.at<cv::Vec3f>(22)[2] > 0 &&
-                    Joints3Dekf.at<cv::Vec3f>(23)[2] > 0){
-
+                if (Joints3Dekf.at<cv::Vec3f>(10)[2] > 0 &&Joints3Dekf.at<cv::Vec3f>(11)[2] > 0 &&
+                    Joints3Dekf.at<cv::Vec3f>(22)[2] > 0 &&Joints3Dekf.at<cv::Vec3f>(23)[2] > 0){
                     cv::Vec3f FootR_mid = (Joints3Dekf.at<cv::Vec3f>(22) + Joints3Dekf.at<cv::Vec3f>(23));
-                    angleFootR = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(10),
-                                                 Joints3Dekf.at<cv::Vec3f>(11),
-                                                 FootR_mid*0.5);
+                    angleFootR = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(10),Joints3Dekf.at<cv::Vec3f>(11),FootR_mid*0.5);
                 }
 
                 // Foot L
-                if (Joints3Dekf.at<cv::Vec3f>(13)[2] > 0 &&
-                    Joints3Dekf.at<cv::Vec3f>(14)[2] > 0 &&
-                    Joints3Dekf.at<cv::Vec3f>(19)[2] > 0 &&
-                    Joints3Dekf.at<cv::Vec3f>(20)[2] > 0){
+                if (Joints3Dekf.at<cv::Vec3f>(13)[2] > 0 && Joints3Dekf.at<cv::Vec3f>(14)[2] > 0 &&
+                    Joints3Dekf.at<cv::Vec3f>(19)[2] > 0 &&Joints3Dekf.at<cv::Vec3f>(20)[2] > 0){
                     cv::Vec3f FootL_mid = (Joints3Dekf.at<cv::Vec3f>(19) + Joints3Dekf.at<cv::Vec3f>(20));
-                    angleFootL = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(13),
-                                                  Joints3Dekf.at<cv::Vec3f>(14),
-                                                  FootL_mid*0.5);
+                    angleFootL = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(13),Joints3Dekf.at<cv::Vec3f>(14),FootL_mid*0.5);
                 }
-
             }
         }
 
@@ -358,17 +344,18 @@ void Viewer::Run()
         //--------- display skeleton of lower limb from frontview  ---------//
         if(mbHumanPose && mSensor == 2) {
             if (mpOpDetector->mvJoints3DEKF.size() > 0) {
-                pangolin::GlTexture imageTextureFrontSkel(im.cols*0.5, im.rows, GL_RGB, false, 0, GL_BGR, GL_UNSIGNED_BYTE);
+                pangolin::GlTexture imageTextureFrontSkel(im.cols, im.rows*3, GL_RGB, false, 0, GL_BGR, GL_UNSIGNED_BYTE);
                 cv::Mat Joints3Dekf = mpOpDetector->mvJoints3DEKF.back();
-                cv::Size ImgSize(im.cols*0.5, im.rows);
-                cv::Mat SkelFrontView = DrawSkelFrontView(Joints3Dekf, ImgSize);
+                cv::Mat SkelFrontView = DrawSkel2DView(Joints3Dekf, cv::Size(im.cols, im.rows*3), true);
+                //cv::Mat SkelFrontView = DrawSkelFrontView(Joints3Dekf, cv::Size(im.cols, im.rows*3));
+                //cv::imwrite("Skel.jpg", SkelFrontView);
                 imageTextureFrontSkel.Upload(SkelFrontView.data, GL_BGR, GL_UNSIGNED_BYTE);
                 d_img_frontSkel.Activate();
                 glColor3f(1.0, 1.0, 1.0);
                 imageTextureFrontSkel.RenderToViewportFlipY();
 
-                pangolin::GlTexture imageTextureSideSkel(im.cols*0.5, im.rows, GL_RGB, false, 0, GL_BGR, GL_UNSIGNED_BYTE);
-                cv::Mat SkelSideView = DrawSkelSideView(Joints3Dekf, ImgSize);
+                pangolin::GlTexture imageTextureSideSkel(im.cols, im.rows*3, GL_RGB, false, 0, GL_BGR, GL_UNSIGNED_BYTE);
+                cv::Mat SkelSideView = DrawSkel2DView(Joints3Dekf, cv::Size(im.cols, im.rows*3), false);
                 imageTextureSideSkel.Upload(SkelSideView.data, GL_BGR, GL_UNSIGNED_BYTE);
                 d_img_sideSkel.Activate();
                 glColor3f(1.0, 1.0, 1.0);
@@ -486,27 +473,71 @@ void Viewer::Draw3DJoints(cv::Mat Joints3D) {
 
 }
 
-//TODO
-void Viewer::Draw3Dtrj(std::vector<cv::Mat> Joints3D, int N_history){
-    glLineWidth(3);
-    glColor3f(0.5,0.0,0.5);
+void Viewer::Draw3Dtrj(std::vector<cv::Mat>Joints3D, int N_history){
+    glLineWidth(2);
+    glColor3f(0.8,0.0,0.8);
     int pLowerLimb[13] = {8,9,10,11,12,13,14,19,20,21,22,23,24};
     int N_store = Joints3D.size();
+    cv::Mat Joints_now, Joints_last;
 
-    if (N_store >= N_history){
-
-        for (std::vector<cv::Mat>::iterator it = Joints3D.begin(); it != Joints3D.begin() + N_history; ++it){
-            cout << *it << endl;
+    glBegin(GL_LINES);
+    if (N_store >= N_history){ // current data > max plot trajectory data
+        for (std::vector<cv::Mat>::iterator it = Joints3D.end() -1; it != Joints3D.end() - N_history; it = it - 1){
+            if (it == Joints3D.end()-1){ //t=1
+                Joints_last = *it;
+            }
+            else{ // t>1
+                Joints_now = *it;
+                for (int i = 0; i < 13; i++){
+                    cv::Vec3f point_now, point_last;
+                    point_now = Joints_now.at<cv::Vec3f>(pLowerLimb[i]);
+                    point_last = Joints_last.at<cv::Vec3f>(pLowerLimb[i]);
+                    if (point_now[2] > 0 && point_last[2]>0){  // These two points are valid
+                        // Map points from camera coordinates to world coordinates
+                        glVertex3f(Twc.m[12] + Twc.m[0] * point_now[0] + Twc.m[4] *  point_now[1] + Twc.m[8]  * point_now[2],
+                                   Twc.m[13] + Twc.m[1] * point_now[0] + Twc.m[5] *  point_now[1] + Twc.m[9]  * point_now[2],
+                                   Twc.m[14] + Twc.m[2] * point_now[0] + Twc.m[6] *  point_now[1] + Twc.m[10] * point_now[2]);
+                        glVertex3f(Twc.m[12] + Twc.m[0] * point_last[0] + Twc.m[4] * point_last[1] + Twc.m[8] * point_last[2],
+                                   Twc.m[13] + Twc.m[1] * point_last[0] + Twc.m[5] * point_last[1] + Twc.m[9] * point_last[2],
+                                   Twc.m[14] + Twc.m[2] * point_last[0] + Twc.m[6] * point_last[1] + Twc.m[10]* point_last[2]);
+                    }
+                }
+                Joints_last = *it;
+            }
         }
-
     }
-    else{
-        for (std::vector<cv::Mat>::iterator it = Joints3D.begin(); it != Joints3D.end(); ++it){
-            cout << *it << endl;
+    else{ // current data < max plot trajectory data
+        for (std::vector<cv::Mat>::iterator it = Joints3D.end()-1; it == Joints3D.begin(); it = it-1){
+            if (it == Joints3D.end()-1){ //t=1
+                Joints_last = *it;
+            }
+            else{ // t>1
+                Joints_now = *it;
+                for (int i = 0; i < 13; i++){
+                    cv::Vec3f point_now, point_last;
+                    point_now = Joints_now.at<cv::Vec3f>(pLowerLimb[i]);
+                    point_last = Joints_last.at<cv::Vec3f>(pLowerLimb[i]);
+                    if (point_now[2] > 0 && point_last[2]>0){  // These two points are valid
+                        // Map points from camera coordinates to world coordinates
+                        glVertex3f(Twc.m[12] + Twc.m[0] * point_now[0] + Twc.m[4] *  point_now[1] + Twc.m[8]  * point_now[2],
+                                   Twc.m[13] + Twc.m[1] * point_now[0] + Twc.m[5] *  point_now[1] + Twc.m[9]  * point_now[2],
+                                   Twc.m[14] + Twc.m[2] * point_now[0] + Twc.m[6] *  point_now[1] + Twc.m[10] * point_now[2]);
+                        glVertex3f(Twc.m[12] + Twc.m[0] * point_last[0] + Twc.m[4] * point_last[1] + Twc.m[8] * point_last[2],
+                                   Twc.m[13] + Twc.m[1] * point_last[0] + Twc.m[5] * point_last[1] + Twc.m[9] * point_last[2],
+                                   Twc.m[14] + Twc.m[2] * point_last[0] + Twc.m[6] * point_last[1] + Twc.m[10]* point_last[2]);
+                    }
+                }
+                Joints_last = *it;
+            }
         }
     }
+    glEnd();
+}
+
+void Viewer::Draw2Dtrj(std::vector<cv::Mat> Joints3D, cv::Mat Img, bool FrontViewFlag){
 
 }
+
 double Viewer::AnglePoint2Plane(cv::Vec3f point3d, cv::Mat plane3d){
     double beta = 0.0;
 
@@ -547,114 +578,51 @@ double Viewer::AnglePoint2Point(cv::Vec3f point1, cv::Vec3f point_mid, cv::Vec3f
     return alpha;
 }
 
-cv::Mat Viewer::DrawSkelFrontView(cv::Mat Joints3D, cv::Size ImgSize){
-    cv::Mat SkelFrontView = cv::Mat::zeros(ImgSize, CV_8UC3) + cv::Scalar(255,255,255);
-    //SkelFrontView.convertTo(SkelFrontView, CV_8UC3);
-    int floorBound = ImgSize.height * 0.9;
-    int HeigthPixel = ImgSize.height * 0.8;
-    std::vector<cv::Mat> FloorChannels(3);
-    cv::Mat FloorC1 = cv::Mat::ones(ImgSize.height - floorBound , ImgSize.width, CV_8UC1);
-    FloorC1.convertTo(FloorC1, CV_8UC1, 200); FloorC1.copyTo(FloorChannels[0]);
-    cv::Mat FloorC2 = cv::Mat::ones(ImgSize.height - floorBound , ImgSize.width, CV_8UC1);
-    FloorC2.convertTo(FloorC2, CV_8UC1, 200); FloorC2.copyTo(FloorChannels[1]);
-    cv::Mat FloorC3 = cv::Mat::ones(ImgSize.height - floorBound , ImgSize.width, CV_8UC1);
-    FloorC3.convertTo(FloorC3, CV_8UC1, 200); FloorC3.copyTo(FloorChannels[2]);
-
-    cv::Mat FloorRender;
-    cv::merge(FloorChannels, FloorRender);
-
-    FloorRender.copyTo( SkelFrontView.rowRange(floorBound,ImgSize.height));
-
-    if (Joints3D.at<cv::Vec3f>(8)[2] * Joints3D.at<cv::Vec3f>(9)[2] * Joints3D.at<cv::Vec3f>(12)[2]
-            * Joints3D.at<cv::Vec3f>(10)[2] * Joints3D.at<cv::Vec3f>(13)[2]
-            * Joints3D.at<cv::Vec3f>(11)[2] * Joints3D.at<cv::Vec3f>(14)[2]){
-        int links[2][12] = {{8 ,8,10,10,22,23,24,13,13,19,20,21},
-                            {9,12, 9,11,11,11,11,12,14,14,14,14}};
-        cv::Mat HBcoord = CalcHumanBodyCoord(Joints3D.at<cv::Vec3f>(9), Joints3D.at<cv::Vec3f>(8), Joints3D.at<cv::Vec3f>(12));
-        cv::Mat SHOWcoord = cv::Mat::eye(3, 3, CV_32FC1);
-        //SHOWcoord.at<float>(2,2) = 1.0f;
-
-        cv::Mat Rot = SHOWcoord*HBcoord.t();
-        cv::Mat Joints3D_copy = Joints3D.clone();
-        cv::Mat Joints3D_Mat(25, 3, CV_32FC1, (void *)Joints3D_copy.data, cv::Mat::AUTO_STEP);
-        Joints3D_Mat = Joints3D_Mat*Rot.t();
-
-        double delta_x = Joints3D_Mat.at<cv::Vec3f>(8)[0];
-
-        for (int i = 0; i < 12; i++){
-            cv::Vec3f jStart, jEnd;
-            jStart = Joints3D_Mat.at<cv::Vec3f>(links[0][i]);
-            jEnd = Joints3D_Mat.at<cv::Vec3f>(links[1][i]);
-            cv::Point2d jStartPlot, jEndPlot;
-            ///When these two joints are both detected
-            if (Joints3D.at<cv::Vec3f>(links[0][i])[2] > 0 && Joints3D.at<cv::Vec3f>(links[1][i])[2] > 0){
-                jStartPlot.x = (jStart[0] - delta_x) * HeigthPixel/(2*mCamZ)
-                        + SkelFrontView.cols/2; // Mov the x-axis of hip center as the center of image
-                jEndPlot.x   = (jEnd[0]   - delta_x) * HeigthPixel/(2*mCamZ)
-                         + SkelFrontView.cols/2; // Mov the x-axis of hip center as the center of image
-                if (jStartPlot.x < 0)
-                    jStartPlot.x = 0;
-                if (jStartPlot.x > SkelFrontView.cols)
-                    jStartPlot.x = SkelFrontView.cols;
-                if (jEndPlot.x < 0)
-                    jEndPlot.x = 0;
-                if (jEndPlot.x > SkelFrontView.cols)
-                    jEndPlot.x = SkelFrontView.cols;
-
-                jStartPlot.y = SkelFrontView.rows - abs(jStart[1]-mCamZ) * HeigthPixel/ (2.2*mCamZ);
-                jEndPlot.y =   SkelFrontView.rows - abs(jEnd[1]-mCamZ)   * HeigthPixel/ (2.2*mCamZ);
-                if (jStartPlot.y < 0)
-                    jStartPlot.y = 0;
-                if (jStartPlot.y > floorBound)
-                    jStartPlot.y = floorBound;
-                if (jEndPlot.y < 0)
-                    jEndPlot.y = 0;
-                if (jEndPlot.y > floorBound)
-                    jEndPlot.y = floorBound;
-                cv::circle(SkelFrontView, jStartPlot, 4, cv::Scalar(0,0,0), 5);
-                cv::circle(SkelFrontView, jEndPlot, 4, cv::Scalar(0,0,0), 5);
-                cv::line(SkelFrontView, jStartPlot, jEndPlot, cv::Scalar(255-i*10, i*20, 255-i*20), 10);
-            }
-        }
+cv::Mat Viewer::DrawSkel2DView(cv::Mat Joints3D, cv::Size ImgSize, bool FrontViewFlag){
+    /// ViewFlag: 0 --> front view ; 1 --> side view
+    cv::Mat Skel2DView = cv::Mat::zeros(ImgSize, CV_8UC3) + cv::Scalar(255,255,255);
+    cv::Mat ViewCoord;
+    if (FrontViewFlag){
+        cv::Mat BufCoord= cv::Mat::eye(3, 3, CV_32FC1);
+        BufCoord.copyTo(ViewCoord);
+    }
+    else{
+        float tmp_showCoord[][3]={0,0,1,0,1,0,1,0,0};
+        cv::Mat BufCoord(3, 3, CV_32FC1,(void *)tmp_showCoord, cv::Mat::AUTO_STEP);
+        BufCoord.copyTo(ViewCoord);
     }
 
-    return SkelFrontView;
-}
-
-cv::Mat Viewer::DrawSkelSideView(cv::Mat Joints3D, cv::Size ImgSize){
-    cv::Mat SkelSideView = cv::Mat::zeros(ImgSize, CV_8UC3) + cv::Scalar(255,255,255);
-
-    int floorBound = ImgSize.height * 0.9;
-    int HeigthPixel = ImgSize.height * 0.8;
+    /// 3D Lower Limb (pixel): 0.8m (width) x 1.2m (height)
+    double HeigthPixel = ImgSize.height * 0.9;
+    int floorBound = (int)(ImgSize.height * 0.9);
+    double WidthPixel = ImgSize.width * 0.9;
     std::vector<cv::Mat> FloorChannels(3);
+
+    /// Plot floor on the image
     cv::Mat FloorC1 = cv::Mat::ones(ImgSize.height - floorBound , ImgSize.width, CV_8UC1);
     FloorC1.convertTo(FloorC1, CV_8UC1, 200); FloorC1.copyTo(FloorChannels[0]);
     cv::Mat FloorC2 = cv::Mat::ones(ImgSize.height - floorBound , ImgSize.width, CV_8UC1);
     FloorC2.convertTo(FloorC2, CV_8UC1, 200); FloorC2.copyTo(FloorChannels[1]);
     cv::Mat FloorC3 = cv::Mat::ones(ImgSize.height - floorBound , ImgSize.width, CV_8UC1);
     FloorC3.convertTo(FloorC3, CV_8UC1, 200); FloorC3.copyTo(FloorChannels[2]);
-
     cv::Mat FloorRender;
     cv::merge(FloorChannels, FloorRender);
-
-    FloorRender.copyTo( SkelSideView.rowRange(floorBound,ImgSize.height));
+    FloorRender.copyTo( Skel2DView.rowRange(floorBound,ImgSize.height));
 
     if (Joints3D.at<cv::Vec3f>(8)[2] * Joints3D.at<cv::Vec3f>(9)[2] * Joints3D.at<cv::Vec3f>(12)[2]
         * Joints3D.at<cv::Vec3f>(10)[2] * Joints3D.at<cv::Vec3f>(13)[2]
         * Joints3D.at<cv::Vec3f>(11)[2] * Joints3D.at<cv::Vec3f>(14)[2]){
+        // links of lower limb
         int links[2][12] = {{8 ,8,10,10,22,23,24,13,13,19,20,21},
                             {9,12, 9,11,11,11,11,12,14,14,14,14}};
+        // Build human body coordiantes
         cv::Mat HBcoord = CalcHumanBodyCoord(Joints3D.at<cv::Vec3f>(9), Joints3D.at<cv::Vec3f>(8), Joints3D.at<cv::Vec3f>(12));
-        float tmp_showCoord[][3]={0,0,1,
-                                0,1,0,
-                                1,0,0};
-        cv::Mat SHOWcoord(3, 3, CV_32FC1,(void *)tmp_showCoord, cv::Mat::AUTO_STEP);
-
-
-        cv::Mat Rot = SHOWcoord*HBcoord.t();
+        cv::Mat Rot = ViewCoord*HBcoord.t();
         cv::Mat Joints3D_copy = Joints3D.clone();
+        // Calculate normalized 3D
         cv::Mat Joints3D_Mat(25, 3, CV_32FC1, (void *)Joints3D_copy.data, cv::Mat::AUTO_STEP);
         Joints3D_Mat = Joints3D_Mat*Rot.t();
+
         double delta_x = Joints3D_Mat.at<cv::Vec3f>(8)[0];
 
         for (int i = 0; i < 12; i++){
@@ -664,37 +632,39 @@ cv::Mat Viewer::DrawSkelSideView(cv::Mat Joints3D, cv::Size ImgSize){
             cv::Point2d jStartPlot, jEndPlot;
             ///When these two joints are both detected
             if (Joints3D.at<cv::Vec3f>(links[0][i])[2] > 0 && Joints3D.at<cv::Vec3f>(links[1][i])[2] > 0){
-                jStartPlot.x = (jStart[0] - delta_x) * HeigthPixel/(2*mCamZ)
-                               + SkelSideView.cols/2; // Mov the x-axis of hip center as the center of image
-                jEndPlot.x   = (jEnd[0]   - delta_x) * HeigthPixel/(2*mCamZ)
-                               + SkelSideView.cols/2; // Mov the x-axis of hip center as the center of image
+                jStartPlot.x = (jStart[0] - delta_x) * WidthPixel/(0.8)
+                               + Skel2DView.cols/2; // Mov the x-axis of hip center as the center of image, 0.8
+                jEndPlot.x   = (jEnd[0]   - delta_x) * WidthPixel/(0.8)
+                               + Skel2DView.cols/2; // Mov the x-axis of hip center as the center of image
                 if (jStartPlot.x < 0)
                     jStartPlot.x = 0;
-                if (jStartPlot.x > SkelSideView.cols)
-                    jStartPlot.x = SkelSideView.cols;
+                if (jStartPlot.x > Skel2DView.cols)
+                    jStartPlot.x = Skel2DView.cols;
                 if (jEndPlot.x < 0)
                     jEndPlot.x = 0;
-                if (jEndPlot.x > SkelSideView.cols)
-                    jEndPlot.x = SkelSideView.cols;
+                if (jEndPlot.x > Skel2DView.cols)
+                    jEndPlot.x = Skel2DView.cols;
 
-                jStartPlot.y = SkelSideView.rows - abs(jStart[1]-mCamZ) * HeigthPixel/ (2.2*mCamZ);
-                jEndPlot.y =   SkelSideView.rows - abs(jEnd[1]-mCamZ)   * HeigthPixel/ (2.2*mCamZ);
+                jStartPlot.y = floorBound - (mCamZ - jStart[1]) * HeigthPixel/1.2;
+                jEndPlot.y =   floorBound - (mCamZ - jEnd[1]) * HeigthPixel/1.2;
+                //jStartPlot.y = SkelFrontView.rows - abs(jStart[1]-mCamZ) * HeigthPixel;
+                //jEndPlot.y =   SkelFrontView.rows - abs(jEnd[1]-mCamZ)   * HeigthPixel;
                 if (jStartPlot.y < 0)
                     jStartPlot.y = 0;
-                if (jStartPlot.y > floorBound)
-                    jStartPlot.y = floorBound;
+                if (jStartPlot.y > Skel2DView.rows)
+                    jStartPlot.y = Skel2DView.rows;
                 if (jEndPlot.y < 0)
                     jEndPlot.y = 0;
-                if (jEndPlot.y > floorBound)
-                    jEndPlot.y = floorBound;
-                cv::circle(SkelSideView, jStartPlot, 4, cv::Scalar(0,0,0), 5);
-                cv::circle(SkelSideView, jEndPlot, 4, cv::Scalar(0,0,0), 5);
-                cv::line(SkelSideView, jStartPlot, jEndPlot, cv::Scalar(255-i*10, i*20, 255-i*20), 10);
+                if (jEndPlot.y > Skel2DView.rows)
+                    jEndPlot.y = Skel2DView.rows;
+                cv::circle(Skel2DView, jStartPlot, 4, cv::Scalar(0,0,0), 5);
+                cv::circle(Skel2DView, jEndPlot, 4, cv::Scalar(0,0,0), 5);
+                cv::line(Skel2DView, jStartPlot, jEndPlot, cv::Scalar(255-i*10, i*20, 255-i*20), 10);
             }
         }
     }
 
-    return SkelSideView;
+    return Skel2DView;
 }
 
 cv::Mat Viewer::CalcHumanBodyCoord(cv::Vec3f HIP_R, cv::Vec3f HIP_C, cv::Vec3f HIP_L){
