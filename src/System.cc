@@ -509,8 +509,6 @@ void System::LoadMap(const string &filename)
     }
 
     cout << endl << filename <<" : Map Loaded!" << endl;
-
-
 }
 
 void System::SaveMap(const string &filename)
@@ -518,11 +516,9 @@ void System::SaveMap(const string &filename)
     std::ofstream os(filename);
     {
         ::boost::archive::binary_oarchive oa(os, ::boost::archive::no_header);
-        //oa << mpKeyFrameDatabase;
         oa << mpMap;
     }
     cout << endl << "Map saved to " << filename << endl;
-
 }
 
 void System::SaveSkeletonRequest(){

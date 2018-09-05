@@ -39,6 +39,7 @@ public:
     Map* mpMap;
 
     void DrawMapPoints();
+    void DrawMapPoints2D();
     void DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph);
     void DrawCurrentCamera(pangolin::OpenGlMatrix &Twc);
     void SetCurrentCameraPose(const cv::Mat &Tcw);
@@ -53,6 +54,7 @@ private:
     float mPointSize;
     float mCameraSize;
     float mCameraLineWidth;
+    float mCamZ;
 
     cv::Mat mCameraPose;
 

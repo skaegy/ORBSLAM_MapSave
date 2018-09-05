@@ -38,7 +38,7 @@ MapDrawer::MapDrawer(Map* pMap, const string &strSettingPath):mpMap(pMap)
     mPointSize = fSettings["Viewer.PointSize"];
     mCameraSize = fSettings["Viewer.CameraSize"];
     mCameraLineWidth = fSettings["Viewer.CameraLineWidth"];
-
+    mCamZ = fSettings["Camera.Z"];
 }
 
 void MapDrawer::DrawMapPoints()
@@ -60,9 +60,12 @@ void MapDrawer::DrawMapPoints()
         if(vpMPs[i]->isBad() || spRefMPs.count(vpMPs[i]))
             continue;
         cv::Mat pos = vpMPs[i]->GetWorldPos();
-        glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
+        /// Only Show points not on the floor plane
+        if (pos.at<float>(1) < (0.5*mCamZ))
+            glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
     }
     glEnd();
+
 
     glPointSize(mPointSize);
     glBegin(GL_POINTS);
@@ -73,12 +76,39 @@ void MapDrawer::DrawMapPoints()
         if((*sit)->isBad())
             continue;
         cv::Mat pos = (*sit)->GetWorldPos();
-        glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
+        /// Only Show points not on the floor plane
+        if (pos.at<float>(1) < (0.5*mCamZ))
+            glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
 
     }
 
     glEnd();
 }
+
+void MapDrawer::DrawMapPoints2D()
+{
+    const vector<MapPoint*> &vpMPs = mpMap->GetAllMapPoints();
+
+
+    if(vpMPs.empty())
+        return;
+
+    glPointSize(mPointSize+5);
+    glBegin(GL_POINTS);
+    glColor3f(0.7,0.7,0.7);
+
+    for(size_t i=0, iend=vpMPs.size(); i<iend;i++)
+    {
+        if(vpMPs[i]->isBad())
+            continue;
+        cv::Mat pos = vpMPs[i]->GetWorldPos();
+        /// Only Show points not on the floor plane
+        if (pos.at<float>(1) < (0.5*mCamZ))
+            glVertex3f(pos.at<float>(0),0.0,pos.at<float>(2));
+    }
+    glEnd();
+}
+
 
 void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph)
 {

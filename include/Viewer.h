@@ -31,6 +31,7 @@
 
 
 #include <mutex>
+#include <limits>
 
 namespace ORB_SLAM2
 {
@@ -65,6 +66,10 @@ public:
 private:
     void Draw3DJoints(cv::Mat Joints3D);
 
+    void Draw2DHumanLoc(cv::Mat Joints3D);
+
+    void Draw2DCamLoc(pangolin::OpenGlMatrix &Twc);
+
     double AnglePoint2Plane(cv::Vec3f point3d, cv::Mat plane3d);
 
     double AnglePoint2Point(cv::Vec3f point1, cv::Vec3f point_mid, cv::Vec3f point2);
@@ -73,7 +78,7 @@ private:
 
     void Draw3Dtrj(std::vector<cv::Mat> Joints3D, int N_history);
 
-	void Draw2Dtrj(std::vector<cv::Mat> Joints3D, cv::Mat Img, bool FrontViewFlag);
+	void Draw2Dtrj(std::vector<cv::Mat> Joints3D, cv::Mat& Img, bool FrontViewFlag, int N_history);
 
     cv::Mat CalcHumanBodyCoord(cv::Vec3f HIP_R, cv::Vec3f HIP_C, cv::Vec3f HIP_L);
 
@@ -97,7 +102,7 @@ private:
     float mImageWidth, mImageHeight;
     float mViewpointX, mViewpointY, mViewpointZ, mViewpointF;
     float mWindowSizeX, mWindowSizeY;
-    double mCamZ;
+    float mCamZ, mCameraSize;
 
 	pangolin::OpenGlMatrix Twc;
 

@@ -68,9 +68,12 @@ Viewer.GraphLineWidth: 0.9
 Viewer.PointSize: 5
 Viewer.CameraSize: 0.1
 Viewer.CameraLineWidth: 3
+#Viewer.ViewpointX: 0
+#Viewer.ViewpointY: -0.7
+#Viewer.ViewpointZ: -1.8
 Viewer.ViewpointX: 0
-Viewer.ViewpointY: -0.7
-Viewer.ViewpointZ: -1.8
+Viewer.ViewpointY: -5.0
+Viewer.ViewpointZ: -0.1
 Viewer.ViewpointF: 500
 Viewer.TrjHistory: 10
 Viewer.WindowSizeX: 1080.0

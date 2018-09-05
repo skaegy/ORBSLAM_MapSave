@@ -93,7 +93,7 @@ int main()
                 imCombine.rowRange(IMG_HEIGHT,IMG_HEIGHT*2).copyTo(imD_C3);
 
                 cv::Mat imD_C3_Smooth;
-                cv::medianBlur ( imD_C3, imD_C3_Smooth, 7 );
+                cv::medianBlur ( imD_C3, imD_C3_Smooth, 3 );
 
                 for (int i = 0; i< IMG_HEIGHT; i++){
                     for (int j = 0; j < IMG_WIDTH; j++){
