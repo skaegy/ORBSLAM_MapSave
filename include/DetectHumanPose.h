@@ -56,6 +56,7 @@ public:
     vector<double> mvTimestamp;
 
     bool OpStandBy = false;
+    int mFramecnt = 0;
 
 private:
     cv::Mat Joints2Dto3D(cv::Mat Joints2D, cv::Mat& imD, double renderThres);
@@ -71,7 +72,9 @@ private:
     cv::KalmanFilter KFInitialization(const int stateNum, const int measureNum, double wk, double vk, double pk);
 
     //TODO
-    cv::Mat JointsFlipDetection(cv::Mat Joints2D, cv::Mat Joints2Dlast);
+    cv::Mat RemoveSkelFlip(cv::Mat skel_curr, cv::Mat skel_last);
+
+    float CalcSkelDist(cv::Mat skel_curr, cv::Mat skel_last, int *JointSet, int JointSize);
 
     bool Stop();
 

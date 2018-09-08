@@ -7,13 +7,14 @@
 # Source of video
 # "rtsp://127.0.0.1:8554/test"
 # "rtmp://localhost/myapp/mystream"
-# "rtsp://146.169.164.142:8554/test"
+# "rtsp://146.169.171.163:8554/test"
 # /dev/video3
 
-Video_source: "rtsp://146.169.171.163:8554/test"
+Video_source: /dev/video2
+  #"rtsp://146.169.167.125:8554/test"
 
 # the Orb Vocabulary File Path. Either .bin File or .txt File is Ok.
-  
+
 Orb_Vocabulary: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Vocabulary/ORBvoc.bin
 
 # the Camera Setting File Path. 
@@ -22,15 +23,19 @@ Cam_Setting: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/ORB_RGBD6
 
 # Whether Run the ORB-SLAM2 System Using the Exsiting Map File (0 for no , 1 for yes).
 
-is_ReuseMap: 0
+is_ReuseMap: 1
 
 # the Exsiting Map File Path (if the above item is 0, this is unnessesary)
 
-ReuseMap: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/Monocular/Slam_latest_Map.bin
+ReuseMap: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/Monocular/Map_RGBD_LoadImage.bin
+
+# Load Image Path (While using Load_Image program)
+
+LoadImagePath: /home/skaegy/Data/SLAM_Monocular1
 
 # Whether detect human pose (0 for no, 1 for yes)
 
-is_DetectHuman: 0
+is_DetectHuman: 1
 
 # the Openpose parameters File Path
 

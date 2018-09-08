@@ -149,14 +149,24 @@ void OpDetector::Run() {
                     mlRenderPoseImage.pop_back();
 
                 // RGB-D (mSensor == 2)
-                if (mSensor == 2 && mlLoadDepth.size() > 0){
+                if (mlLoadDepth.size() > 0){
+                    /// Get depth value and map to 3D skeleton
                     cv::Mat inputDepth = mlLoadDepth.front();
                     cv::Mat Joints3D = Joints2Dto3D(keyJoint2D, inputDepth, render_threshold);
                     mvJoints3Draw.push_back(Joints3D);
+
+                    /// Remove suddenly flip of the skeleton by openpose
+                    /*
+                    if (mvJoints3Draw.size() > 1){
+                        std::vector<cv::Mat>::iterator lit_last = mvJoints3Draw.end()-2;
+                        cv::Mat skel_last = *lit_last;
+                        Joints3D = RemoveSkelFlip(Joints3D, skel_last);
+                    }
+                     */
                     cv::Mat Joints3D_EKFsmooth;
                     Joints3D.copyTo(Joints3D_EKFsmooth);
 
-                    // KALMAN SMOOTHER
+                    /// KALMAN SMOOTHER
                     for (int i = 0; i < 13; i ++){
                         int idx = LowerLimb[i];
                         Vec3f jointRaw = Joints3D.at<cv::Vec3f>(idx);
@@ -204,6 +214,7 @@ void OpDetector::Run() {
                 if (mlRenderPoseImage.size() > 2)
                     mlRenderPoseImage.pop_back();
             }
+            mFramecnt++;
         }
     }
 }
@@ -264,6 +275,15 @@ cv::Mat OpDetector::Joints2Dto3D(cv::Mat Joints2D, cv::Mat& imD, double renderTh
 }
 
 float OpDetector::GetPointDepth(cv::Vec2f point2D, cv::Mat& imD, int depth_radius){
+    /*
+     * GetPointDepth: get the depth value of a given pixel. Due to that the depth image
+     * typically contains several zero values. Hence, we need to estimate the depth value
+     * according to its neighbors
+     * Input:
+     *     - point2D (x,y)
+     *     - imD: depth image
+     *     - depth_radius: radius of the neighborhood
+     */
     int z = 0, z_valid = 0, z_cnt = 0;
     int x = point2D[0];
     int y = point2D[1];
@@ -420,46 +440,92 @@ cv::KalmanFilter OpDetector::KFInitialization(const int stateNum, const int meas
     return KF;
 }
 
+cv::Mat OpDetector::RemoveSkelFlip(cv::Mat skel_curr, cv::Mat skel_last){
+    cv::Mat outMat;
+    int LowerLimb[12]={9,10,11,12,13,14};
+    int N = (int)(sizeof(LowerLimb)/sizeof(LowerLimb[0]));
+    int LowerPair[2][12]={{9,10,11,12,13,14,19,20,21,22,23,24},
+                          {12,13,14,9,10,11,22,23,24,19,20,21}};
 
-void OpDetector::RequestFinish()
-{
+    cv::Mat tmp1 = skel_curr.colRange(0,9).clone();
+    cv::Mat tmp2 = skel_curr.colRange(9,12).clone();
+    cv::Mat tmp3 = skel_curr.colRange(12,15).clone();
+    cv::Mat tmp4 = skel_curr.colRange(19,22).clone();
+    cv::Mat tmp5 = skel_curr.colRange(22,25).clone();
+
+    cv::Mat skel_currFlip;
+    cv::hconcat(tmp1, tmp3, skel_currFlip);
+    cv::hconcat(skel_currFlip, tmp2, skel_currFlip);
+    cv::hconcat(skel_currFlip, tmp5, skel_currFlip);
+    cv::hconcat(skel_currFlip, tmp4, skel_currFlip);
+
+    cout << "Current" << endl;
+    float DistStay = CalcSkelDist(skel_curr, skel_last, LowerLimb, N);
+    cout << "Current Flip" << endl;
+    float DistFlip = CalcSkelDist(skel_currFlip, skel_last, LowerLimb, N);
+    cout << "Stay distance: " << DistStay << " DistFlip: " << DistFlip << endl;
+    if (DistStay <= DistFlip)
+        skel_curr.copyTo(outMat);
+    else
+        skel_currFlip.copyTo(outMat);
+
+    return outMat;
+}
+
+float OpDetector::CalcSkelDist(cv::Mat skel_curr, cv::Mat skel_last, int *JointSet, int JointSize){
+    /*
+     * skel_curr: 3D skeleton in current frame: J = [25*1*3] (cv::Vec3f)
+     * skel_last: 3D skeleton in last frame: J = [25*1*3] (cv::Vec3f)
+     * JointSet: selected joints needed to calculate the distance
+     */
+    float SkelDist = 0.0;
+
+    for (int i = 0; i < JointSize; i++){
+        int idx = JointSet[i];
+        // Only calculate the distance between two valid joints
+        if (skel_curr.at<cv::Vec3f>(idx)[2]>0 && skel_last.at<cv::Vec3f>(idx)[2] >0){
+            SkelDist = SkelDist + cv::norm(skel_curr.at<cv::Vec3f>(idx), skel_last.at<cv::Vec3f>(idx));
+
+            cout << idx << " " << skel_curr.at<cv::Vec3f>(idx) << " " << skel_last.at<cv::Vec3f>(idx) << " "
+                    << cv::norm(skel_curr.at<cv::Vec3f>(idx), skel_last.at<cv::Vec3f>(idx)) << endl;
+        }
+
+    }
+    return SkelDist;
+}
+
+void OpDetector::RequestFinish(){
     unique_lock<mutex> lock(mMutexFinish);
     mbFinishRequested = true;
 }
 
-bool OpDetector::CheckFinish()
-{
+bool OpDetector::CheckFinish(){
     unique_lock<mutex> lock(mMutexFinish);
     return mbFinishRequested;
 }
 
-void OpDetector::SetFinish()
-{
+void OpDetector::SetFinish(){
     unique_lock<mutex> lock(mMutexFinish);
     mbFinished = true;
 }
 
-bool OpDetector::isFinished()
-{
+bool OpDetector::isFinished(){
     unique_lock<mutex> lock(mMutexFinish);
     return mbFinished;
 }
 
-void OpDetector::RequestStop()
-{
+void OpDetector::RequestStop(){
     unique_lock<mutex> lock(mMutexStop);
     if(!mbStopped)
         mbStopRequested = true;
 }
 
-bool OpDetector::isStopped()
-{
+bool OpDetector::isStopped(){
     unique_lock<mutex> lock(mMutexStop);
     return mbStopped;
 }
 
-bool OpDetector::Stop()
-{
+bool OpDetector::Stop(){
     unique_lock<mutex> lock(mMutexStop);
     unique_lock<mutex> lock2(mMutexFinish);
 
@@ -475,8 +541,7 @@ bool OpDetector::Stop()
     return false;
 }
 
-void OpDetector::Release()
-{
+void OpDetector::Release(){
     unique_lock<mutex> lock(mMutexStop);
     mbStopped = false;
 }

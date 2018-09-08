@@ -99,12 +99,14 @@ int main()
             // Filter
             depth = depth_to_disparity.process(depth);
             depth = spat_filter.process(depth);
-            depth = temp_filter.process(depth);
+            //depth = temp_filter.process(depth);
             depth = disparity_to_depth.process(depth);
 
             // realsense frame to mat
             cv::Mat imRGB(cv::Size(IMG_WIDTH, IMG_HEIGHT), CV_8UC3, (void *) color.get_data(), cv::Mat::AUTO_STEP);
             cv::Mat imD(cv::Size(IMG_WIDTH, IMG_HEIGHT), CV_16UC1, (void *) depth.get_data(), cv::Mat::AUTO_STEP);
+            imD.setTo(cv::Scalar(0), imD < 300);
+            imD.setTo(cv::Scalar(0), imD > 4000);
 
             //cv::imwrite("1.png",imD);
             //cv::imwrite("1.jpg",imRGB);
@@ -135,7 +137,6 @@ while(1) {
         cv::Mat imRGB = processed_color.front();
 
         // Pass the image to the SLAM system
-
         SLAM.TrackRGBD(imRGB, imD, unix_timestamp_ms);
 
         //cout << message << endl;

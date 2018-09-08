@@ -95,14 +95,26 @@ ${realsense2_LIBRARIES}
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Monocular)
 
+
+# ----- Monocular ----- #
 add_executable(Monocular Examples/Monocular.cc )
 target_link_libraries(Monocular ${PROJECT_NAME})
 
+add_executable(Monocular_LoadImages Examples/Monocular_LoadImages.cpp )
+target_link_libraries(Monocular_LoadImages ${PROJECT_NAME})
+
+# ----- RGBD ----- #
 add_executable(RGBD Examples/RGBD.cpp)
 target_link_libraries(RGBD ${PROJECT_NAME} realsense2 OpenMP::OpenMP_CXX)
 
-add_executable(RGDB_RTSP Examples/RGBD_RTSP.cpp)
-target_link_libraries(RGDB_RTSP ${PROJECT_NAME}  OpenMP::OpenMP_CXX)
+add_executable(RGBD_LoadImages Examples/RGBD_LoadImages.cpp)
+target_link_libraries(RGBD_LoadImages ${PROJECT_NAME} realsense2)
+
+add_executable(RGBD_RTSP Examples/RGBD_RTSP.cpp)
+target_link_libraries(RGBD_RTSP ${PROJECT_NAME})
+
+add_executable(RGBD_RTSPFast Examples/RGBD_RTSPFast.cpp)
+target_link_libraries(RGBD_RTSPFast ${PROJECT_NAME})
 
 # Build tools
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/tools)

@@ -140,12 +140,10 @@ System::System(const string &strVocFile, const string &strSettingsFile,
 
     // 3. Create the Map
     // New map or load map
-    if (!bReuse)
-    {
+    if (!bReuse){
         mpMap = new Map();
     }
-	else
-	{
+	else{
         LoadMap(mapFilePath.c_str());
         //mpKeyFrameDatabase->set_vocab(mpVocabulary);
 
@@ -496,28 +494,27 @@ void System::Shutdown()
     pangolin::BindToContext("ORB-SLAM2: Map Viewer");
 }
 
-void System::LoadMap(const string &filename)
-{
-    {
-        std::ifstream is(filename);
+void System::LoadMap(const string &filename){
 
-       
+    std::ifstream is(filename);
+    {
         boost::archive::binary_iarchive ia(is, boost::archive::no_header);
         //ia >> mpKeyFrameDatabase;
         ia >> mpMap;
-       
-    }
 
+    }
+    is.close();
     cout << endl << filename <<" : Map Loaded!" << endl;
 }
 
-void System::SaveMap(const string &filename)
-{
+void System::SaveMap(const string &filename){
     std::ofstream os(filename);
     {
         ::boost::archive::binary_oarchive oa(os, ::boost::archive::no_header);
+        //oa << mpKeyFrameDatabase;
         oa << mpMap;
     }
+    os.close();
     cout << endl << "Map saved to " << filename << endl;
 }
 
@@ -570,6 +567,7 @@ void System::SaveSkeletonTrajectory(const string &filename){
 
 void System::SaveTrajectoryRequest(){
     SaveKeyFrameTrajectory("KeyFrameTrajectory.txt");
+    SaveCameraTrajectory("CameraTrajectory.txt");
 }
 
 void System::SaveCameraTrajectory(const string &filename){
@@ -621,14 +619,13 @@ void System::SaveCameraTrajectory(const string &filename){
 
         vector<float> q = Converter::toQuaternion(Rwc);
 
-        f << setprecision(6) << *lT << " " <<  setprecision(9) << twc.at<float>(0) << " " << twc.at<float>(1) << " " << twc.at<float>(2) << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
+        f << setprecision(6) << *lT/1e3 << " " <<  setprecision(6) << twc.at<float>(0) << " " << twc.at<float>(1) << " " << twc.at<float>(2) << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
     }
     f.close();
     cout << endl << "trajectory saved!" << endl;
 }
 
-void System::SaveKeyFrameTrajectory(const string &filename)
-{
+void System::SaveKeyFrameTrajectory(const string &filename){
     cout << endl << "Saving keyframe trajectory to " << filename << " ..." << endl;
 
     vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
@@ -655,7 +652,7 @@ void System::SaveKeyFrameTrajectory(const string &filename)
         vector<float> q = Converter::toQuaternion(R);
         cv::Mat t = pKF->GetCameraCenter();
 
-        f << setprecision(6) << (pKF->mTimeStamp)/1e3 << setprecision(7) << " " << t.at<float>(0) << " " << t.at<float>(1) << " " << t.at<float>(2)
+        f << setprecision(6) << (pKF->mTimeStamp)/1e3 << setprecision(6) << " " << t.at<float>(0) << " " << t.at<float>(1) << " " << t.at<float>(2)
           << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
 
     }
@@ -664,8 +661,7 @@ void System::SaveKeyFrameTrajectory(const string &filename)
     cout << endl << "trajectory saved!" << endl;
 }
 
-void System::SaveStereoKeyFrameTrajectory(const string &filename)
-{
+void System::SaveStereoKeyFrameTrajectory(const string &filename){
     cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
 
     vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();

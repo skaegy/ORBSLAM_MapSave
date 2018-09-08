@@ -1,4 +1,8 @@
 //
+// Created by root on 07/09/18.
+//
+
+//
 // Created by root on 30/08/18.
 //
 
@@ -64,7 +68,7 @@ int main()
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
     ORB_SLAM2::System SLAM(strORBvoc, strCamSet, strArucoParamsFile, strOpenposeSettingFile,
-                           ORB_SLAM2::System::RGBD, true, bReuseMap, bHumanPose, bArucoDetect, strMapPath);
+                           ORB_SLAM2::System::MONOCULAR, true, bReuseMap, bHumanPose, bArucoDetect, strMapPath);
 
     cout << endl << "-------" << endl;
     cout << "Start processing sequence ..." << endl;
@@ -160,10 +164,8 @@ int main()
             cv::Mat imRGB = processed_color.front();
 
             // Pass the image to the SLAM system
+            SLAM.TrackMonocular(imRGB, unix_timestamp_ms);
 
-            SLAM.TrackRGBD(imRGB, imD, unix_timestamp_ms);
-
-            //cout << message << endl;
             // Pass the image to ARUCO marker detection system
             imRGB.copyTo(imAruco);
             if (ARUCOStandBy)

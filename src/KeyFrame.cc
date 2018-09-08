@@ -563,7 +563,7 @@ void KeyFrame::SetMapPoints(std::vector<MapPoint*> spMapPoints)
             }
             if (mapp_found == false)
             {
-                cout << " map point [" << id <<"] not found in KF " << mnId << endl;
+                //cout << " map point [" << id <<"] not found in KF " << mnId << endl;
                 mvpMapPoints[j] = static_cast<MapPoint*>(NULL);
             }
 

@@ -52,6 +52,8 @@ template<class Archive>
         std::for_each(mvpKeyFrameOrigins.begin(), mvpKeyFrameOrigins.end(), [&ar](KeyFrame* pKeyFrameOrigin) {
             ar & *pKeyFrameOrigin;
         });
+
+
         // Pertaining to map drawing
         //nItems = mvpReferenceMapPoints.size();
         //cout << "$${INFO}mvpReferenceMapPoints size = %d " << nItems << endl;
@@ -62,6 +64,13 @@ template<class Archive>
         ar & const_cast<long unsigned int &> (mnMaxKFid);
 
         ar & test_data;
+
+        nItems = mspMapPoints.size();
+        ar & nItems;
+        cout << "{INFO}mspMapPoints size = " << nItems << endl;
+        std::for_each(mspMapPoints.begin(), mspMapPoints.end(), [&ar](MapPoint* pMapPoint) {
+            ar & *pMapPoint;
+        });
     }
 
     template<class Archive>
@@ -74,7 +83,7 @@ template<class Archive>
         cout << "{INFO}mspMapPoints size = " << nItems << endl;
         
         for (int i = 0; i < nItems; ++i) {
-            
+            //cout << "read: " << i << endl;
             MapPoint* pMapPoint = new MapPoint();
             ar & *pMapPoint;
             mspMapPoints.insert(pMapPoint);
@@ -84,7 +93,6 @@ template<class Archive>
         cout << "{INFO}mspKeyFrames size = " << nItems << endl;
 
         for (int i = 0; i < nItems; ++i) {
-
             KeyFrame* pKeyFrame = new KeyFrame;
             ar & *pKeyFrame;
             mspKeyFrames.insert(pKeyFrame);
@@ -99,7 +107,9 @@ template<class Archive>
             KeyFrame* pKeyFrame = new KeyFrame;
             ar & *pKeyFrame;
             mvpKeyFrameOrigins.push_back(*mspKeyFrames.begin());
-        }     
+        }
+
+
 
         ar & const_cast<long unsigned int &> (mnMaxKFid);
 

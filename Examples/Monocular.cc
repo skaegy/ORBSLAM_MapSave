@@ -24,7 +24,7 @@
 #include <list>
 #include <thread>
 #include <opencv2/core/core.hpp>
-#include <opencv2/videoio.hpp>
+#include <opencv2/videoio/videoio.hpp>
 #include <opencv2/videoio/videoio_c.h>
 #include "System.h"
 
@@ -81,10 +81,10 @@ int main()
             capture >> im;
             if(im.empty())
             {
-                cerr << endl << "Failed to load image!" << endl;
+                continue;
             }
             LoadImage.push_front(im);
-            if (LoadImage.size() > 1)
+            if (LoadImage.size() > 2)
                 LoadImage.pop_back();
 
         }

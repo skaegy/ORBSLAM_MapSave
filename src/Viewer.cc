@@ -88,7 +88,7 @@ void Viewer::Run()
     pangolin::Var<bool> menuLocalizationMode("menu.Localization Mode",mbReuse,true);
 
     pangolin::Var<bool> menuSaveMap("menu.Save Map",false,false);
-    pangolin::Var<bool> menuSaveCamTrj("menu.Save Cam Trajectory",false,false);
+    pangolin::Var<bool> menuSaveCamTrj("menu.Save CamTrj(Map)",false,false);
     pangolin::Var<bool> menuSaveSkeleton("menu.Save Skeleton",false,false);
     pangolin::Var<bool> menuReset("menu.Reset",false,false);
     pangolin::Var<bool> menuShutDown("menu.Shut Down",false,false);
@@ -203,6 +203,7 @@ void Viewer::Run()
         glEnd();
 
         mpMapDrawer->GetCurrentOpenGLCameraMatrix(Twc);
+        mpMapDrawer->GetCurrentOpenGLCameraMatrix(Twc);
 
         /// Determine to draw different things according to GUI
         if(menuFollowCamera && bFollow)
@@ -305,7 +306,7 @@ void Viewer::Run()
 */
 
         ///--------- display 3D human pose  ---------//
-        if(mbHumanPose && mSensor == 2){
+        if(mbHumanPose){
             if (mpOpDetector->mvJoints3DEKF.size()>0){
                 cv::Mat Joints3Dekf = mpOpDetector->mvJoints3DEKF.back();
                 std::vector<cv::Mat> mvJoints3DEKF = mpOpDetector->mvJoints3DEKF;
@@ -378,7 +379,7 @@ void Viewer::Run()
         imageTextureORB.RenderToViewportFlipY();
 
         ///--------- display skeleton of lower limb from front-view & side-view ---------//
-        if(mbHumanPose && mSensor == 2) {
+        if(mbHumanPose) {
             if (mpOpDetector->mvJoints3DEKF.size() > 0) {
                 // Skeleton2D image size: im.rows*3
                 // Front view

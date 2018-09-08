@@ -28,8 +28,7 @@ namespace ORB_SLAM2
 {
 
 
-MapDrawer::MapDrawer(Map* pMap, const string &strSettingPath):mpMap(pMap)
-{
+MapDrawer::MapDrawer(Map* pMap, const string &strSettingPath):mpMap(pMap){
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
 
     mKeyFrameSize = fSettings["Viewer.KeyFrameSize"];
@@ -41,8 +40,7 @@ MapDrawer::MapDrawer(Map* pMap, const string &strSettingPath):mpMap(pMap)
     mCamZ = fSettings["Camera.Z"];
 }
 
-void MapDrawer::DrawMapPoints()
-{
+void MapDrawer::DrawMapPoints(){
     const vector<MapPoint*> &vpMPs = mpMap->GetAllMapPoints();
     const vector<MapPoint*> &vpRefMPs = mpMap->GetReferenceMapPoints();
 
@@ -61,7 +59,7 @@ void MapDrawer::DrawMapPoints()
             continue;
         cv::Mat pos = vpMPs[i]->GetWorldPos();
         /// Only Show points not on the floor plane
-        if (pos.at<float>(1) < (0.5*mCamZ) && pos.at<float>(2) < 4)
+        if (pos.at<float>(1) < (0.5*mCamZ) && pos.at<float>(1) > (-1 + mCamZ) )
             glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
     }
     glEnd();
@@ -77,7 +75,7 @@ void MapDrawer::DrawMapPoints()
             continue;
         cv::Mat pos = (*sit)->GetWorldPos();
         /// Only Show points not on the floor plane
-        if (pos.at<float>(1) < (0.5*mCamZ) && pos.at<float>(2) < 4)
+        if (pos.at<float>(1) < (0.5*mCamZ) && pos.at<float>(1) > (-1 + mCamZ) )
             glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
 
     }
@@ -85,15 +83,13 @@ void MapDrawer::DrawMapPoints()
     glEnd();
 }
 
-void MapDrawer::DrawMapPoints2D()
-{
+void MapDrawer::DrawMapPoints2D(){
     const vector<MapPoint*> &vpMPs = mpMap->GetAllMapPoints();
-
 
     if(vpMPs.empty())
         return;
 
-    glPointSize(mPointSize+5);
+    glPointSize(mPointSize);
     glBegin(GL_POINTS);
     glColor3f(0.7,0.7,0.7);
 
@@ -103,15 +99,13 @@ void MapDrawer::DrawMapPoints2D()
             continue;
         cv::Mat pos = vpMPs[i]->GetWorldPos();
         /// Only Show points not on the floor plane
-        if (pos.at<float>(1) < (0.5*mCamZ))
+        if (pos.at<float>(1) < (0.5*mCamZ) && pos.at<float>(1) > (-1 + mCamZ)  )
             glVertex3f(pos.at<float>(0),0.0,pos.at<float>(2));
     }
     glEnd();
 }
 
-
-void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph)
-{
+void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph){
     const float &w = mKeyFrameSize;
     const float h = w*0.75;
     const float z = w*0.6;
@@ -206,8 +200,7 @@ void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph)
     }
 }
 
-void MapDrawer::DrawCurrentCamera(pangolin::OpenGlMatrix &Twc)
-{
+void MapDrawer::DrawCurrentCamera(pangolin::OpenGlMatrix &Twc){
     const float &w = mCameraSize;
     const float h = w*0.75;
     const float z = w*0.6;
@@ -248,17 +241,17 @@ void MapDrawer::DrawCurrentCamera(pangolin::OpenGlMatrix &Twc)
     glPopMatrix();
 }
 
-
-void MapDrawer::SetCurrentCameraPose(const cv::Mat &Tcw)
-{
+void MapDrawer::SetCurrentCameraPose(const cv::Mat &Tcw){
     unique_lock<mutex> lock(mMutexCamera);
     mCameraPose = Tcw.clone();
 }
 
-void MapDrawer::GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M)
-{
+void MapDrawer::GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M){
     if(!mCameraPose.empty())
     {
+        /// ADD BY SKAEGY
+        mvCameraPose.push_back(mCameraPose);
+        //////////////////////////////
         cv::Mat Rwc(3,3,CV_32F);
         cv::Mat twc(3,1,CV_32F);
         {

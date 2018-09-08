@@ -5,14 +5,14 @@
 #--------------------------------------------------------------------------------------------
 
 # Camera calibration and distortion parameters (OpenCV) 
-#Camera.fx: 618.738
-#Camera.fy: 618.296
-#Camera.cx: 324.929
-#Camera.cy: 241.133
-Camera.fx: 309.369
-Camera.fy: 309.148
-Camera.cx: 214.465
-Camera.cy: 120.566
+Camera.fx: 618.738
+Camera.fy: 618.296
+Camera.cx: 324.929
+Camera.cy: 241.133
+#Camera.fx: 309.369
+#Camera.fy: 309.148
+#Camera.cx: 214.465
+#Camera.cy: 120.566
 
 Camera.k1: 0.000000
 Camera.k2: 0.000000
@@ -20,12 +20,12 @@ Camera.p1: 0.000000
 Camera.p2: 0.000000
 Camera.k3: 0.000000
 
-Camera.width: 424
-Camera.height: 240
+Camera.width: 640
+Camera.height: 480
 Camera.Z: 0.4
 
 # Camera frames per second 
-Camera.fps: 15
+Camera.fps: 30
 
 # IR projector baseline times fx (aprox.)
 Camera.bf: 3.0
@@ -44,7 +44,7 @@ DepthMapFactor: 1000.0
 #--------------------------------------------------------------------------------------------
 
 # ORB Extractor: Number of features per image
-ORBextractor.nFeatures: 500
+ORBextractor.nFeatures: 1000
 
 # ORB Extractor: Scale factor between levels in the scale pyramid 	
 ORBextractor.scaleFactor: 1.2
@@ -56,8 +56,8 @@ ORBextractor.nLevels: 8
 # Image is divided in a grid. At each cell FAST are extracted imposing a minimum response.
 # Firstly we impose iniThFAST. If no corners are detected we impose a lower value minThFAST
 # You can lower these values if your images have low contrast			
-ORBextractor.iniThFAST: 10
-ORBextractor.minThFAST: 5
+ORBextractor.iniThFAST: 7
+ORBextractor.minThFAST: 3
 
 #--------------------------------------------------------------------------------------------
 # Viewer Parameters
@@ -72,7 +72,7 @@ Viewer.CameraLineWidth: 3
 #Viewer.ViewpointY: -0.7
 #Viewer.ViewpointZ: -1.8
 Viewer.ViewpointX: 0
-Viewer.ViewpointY: -5.0
+Viewer.ViewpointY: -4.0
 Viewer.ViewpointZ: -0.1
 Viewer.ViewpointF: 500
 Viewer.TrjHistory: 10
