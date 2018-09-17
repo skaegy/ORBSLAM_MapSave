@@ -148,6 +148,7 @@ System::System(const string &strVocFile, const string &strSettingsFile,
         //mpKeyFrameDatabase->set_vocab(mpVocabulary);
 
         vector<ORB_SLAM2::KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
+        std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
         for (vector<ORB_SLAM2::KeyFrame*>::iterator it = vpKFs.begin(); it != vpKFs.end(); ++it)
         {
             (*it)->SetKeyFrameDatabase(mpKeyFrameDatabase);
@@ -155,24 +156,35 @@ System::System(const string &strVocFile, const string &strSettingsFile,
             (*it)->SetMap(mpMap);
             (*it)->ComputeBoW();
             mpKeyFrameDatabase->add(*it);
+            //TODO: Time cost is high
             (*it)->SetMapPoints(mpMap->GetAllMapPoints());
             (*it)->SetSpanningTree(vpKFs);
             (*it)->SetGridParams(vpKFs);
-
             // Reconstruct map points Observation
         }
+        std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+        double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+        cout << " Timecost: " << ttrack << endl;
 
+        t1 = std::chrono::steady_clock::now();
         vector<ORB_SLAM2::MapPoint*> vpMPs = mpMap->GetAllMapPoints();
         for (vector<ORB_SLAM2::MapPoint*>::iterator mit = vpMPs.begin(); mit != vpMPs.end(); ++mit)
         {
             (*mit)->SetMap(mpMap);
             (*mit)->SetObservations(vpKFs);
         }
+        t2 = std::chrono::steady_clock::now();
+        ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+        cout << " Timecost: " << ttrack << endl;
 
+        t1 = std::chrono::steady_clock::now();
         for (vector<ORB_SLAM2::KeyFrame*>::iterator it = vpKFs.begin(); it != vpKFs.end(); ++it)
         {
             (*it)->UpdateConnections();
         }
+        t2 = std::chrono::steady_clock::now();
+        ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
+        cout << " Timecost: " << ttrack << endl;
 	}
 	cout << endl << mpMap <<" : is the created map address" << endl;
 

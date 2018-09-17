@@ -102,10 +102,12 @@ void Viewer::Run()
     pangolin::Var<double> distHipY("menu.HIP_C: Y", 0);
     pangolin::Var<double> distHipZ("menu.HIP_C: Z", 0);
 
-    pangolin::Var<double> angleLegR("menu.Right leg(rad)", 3.14, 0, 4.0);
-    pangolin::Var<double> angleLegL("menu.Left leg(rad)", 3.14, 0, 4.0);
-    pangolin::Var<double> angleFootR("menu.Right foot(rad)", 1.57, 0, 2.0);
-    pangolin::Var<double> angleFootL("menu.Left foot(rad)", 1.57, 0, 2.0);
+    pangolin::Var<double> Rshank("menu.R_shank(deg)", 90.0, -180.0, 180.0);
+    pangolin::Var<double> Lshank("menu.L_shank(deg)",  90.0, -180.0, 180.0);
+    pangolin::Var<double> Rankle("menu.R_ankle(deg)",  90.0, -180.0, 180.0);
+    pangolin::Var<double> Lankle("menu.L_ankle(deg)",  90.0, -180.0, 180.0);
+    //pangolin::Var<double> Rftp("menu.R_foot progression (deg)",  90.0, -180.0, 180.0);
+    //pangolin::Var<double> Lftp("menu.L_foot progression(deg)",  90.0, -180.0, 180.0);
 
     // Define Camera Render Object (for view / scene browsing)
     pangolin::OpenGlRenderState s_cam(
@@ -194,7 +196,7 @@ void Viewer::Run()
 
         d_cam_fix.Activate(s_cam_fix);
         glBegin(GL_TRIANGLE_STRIP);
-        glColor4f(0.4, 0.7, 0.8, 0.5);
+        glColor4f(0.9, 0.9, 0.9, 0.8);
 
         glTexCoord2f(0.0f, 0.0f); glVertex3f(-20.0, mCamZ, -20.0);
         glTexCoord2f(0.0f, 1.0f); glVertex3f(-20.0, mCamZ, 20.0);
@@ -308,12 +310,14 @@ void Viewer::Run()
         ///--------- display 3D human pose  ---------//
         if(mbHumanPose){
             if (mpOpDetector->mvJoints3DEKF.size()>0){
-                cv::Mat Joints3Dekf = mpOpDetector->mvJoints3DEKF.back();
-                std::vector<cv::Mat> mvJoints3DEKF = mpOpDetector->mvJoints3DEKF;
+                std::vector<cv::Mat>::iterator it = mpOpDetector->mvJoints3DEKF.end();
+                //cv::Mat Joints3Dekf = mpOpDetector->mvJoints3DEKF.back();
+                cv::Mat Joints3Dekf = *(it-1);
+                //std::vector<cv::Mat> mvJoints3DEKF = mpOpDetector->mvJoints3DEKF;
 
                 d_cam.Activate(s_cam);
                 Draw3DJoints(Joints3Dekf);
-                Draw3Dtrj(mvJoints3DEKF, mTrjHistory);
+                //Draw3Dtrj(mvJoints3DEKF, mTrjHistory);
 
                 d_cam_fix.Activate(s_cam_fix);
                 Draw2DHumanLoc(Joints3Dekf);
@@ -325,28 +329,28 @@ void Viewer::Run()
                 }
 
                 // Show angles
-                // Knee R
+                // Right shank angle
                 if (Joints3Dekf.at<cv::Vec3f>(9)[2] > 0 &&
                     Joints3Dekf.at<cv::Vec3f>(10)[2] > 0 &&
                     Joints3Dekf.at<cv::Vec3f>(11)[2] > 0) {
-                    angleLegR = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(9),Joints3Dekf.at<cv::Vec3f>(10),Joints3Dekf.at<cv::Vec3f>(11));
+                    Rshank = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(9),Joints3Dekf.at<cv::Vec3f>(10),Joints3Dekf.at<cv::Vec3f>(11));
                 }
-                // Knee L
+                // Left shank angle
                 if (Joints3Dekf.at<cv::Vec3f>(12)[2] > 0 &&Joints3Dekf.at<cv::Vec3f>(13)[2] > 0 &&Joints3Dekf.at<cv::Vec3f>(14)[2] > 0) {
-                    angleLegL = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(12),Joints3Dekf.at<cv::Vec3f>(13),Joints3Dekf.at<cv::Vec3f>(14));
+                    Lshank = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(12),Joints3Dekf.at<cv::Vec3f>(13),Joints3Dekf.at<cv::Vec3f>(14));
                 }
-                // Foot R
+                // Right ankle angle
                 if (Joints3Dekf.at<cv::Vec3f>(10)[2] > 0 &&Joints3Dekf.at<cv::Vec3f>(11)[2] > 0 &&
                     Joints3Dekf.at<cv::Vec3f>(22)[2] > 0 &&Joints3Dekf.at<cv::Vec3f>(23)[2] > 0){
                     cv::Vec3f FootR_mid = (Joints3Dekf.at<cv::Vec3f>(22) + Joints3Dekf.at<cv::Vec3f>(23));
-                    angleFootR = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(10),Joints3Dekf.at<cv::Vec3f>(11),FootR_mid*0.5);
+                    Rankle = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(10),Joints3Dekf.at<cv::Vec3f>(11),FootR_mid*0.5);
                 }
 
-                // Foot L
+                // Left ankle angle
                 if (Joints3Dekf.at<cv::Vec3f>(13)[2] > 0 && Joints3Dekf.at<cv::Vec3f>(14)[2] > 0 &&
                     Joints3Dekf.at<cv::Vec3f>(19)[2] > 0 &&Joints3Dekf.at<cv::Vec3f>(20)[2] > 0){
                     cv::Vec3f FootL_mid = (Joints3Dekf.at<cv::Vec3f>(19) + Joints3Dekf.at<cv::Vec3f>(20));
-                    angleFootL = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(13),Joints3Dekf.at<cv::Vec3f>(14),FootL_mid*0.5);
+                    Lankle = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(13),Joints3Dekf.at<cv::Vec3f>(14),FootL_mid*0.5);
                 }
             }
         }
@@ -481,15 +485,20 @@ void Viewer::Draw3DJoints(cv::Mat Joints3D) {
     glPointSize(10);
     glBegin(GL_POINTS);
     glColor3f(0.2f, 0.2f, 0.f);
-    vector<cv::Mat> channels(3);
-    split(Joints3D, channels);
 
+    //cout << Joints3D.empty() << " " << Joints3D.type() << " " << Joints3D.channels() << " " << Joints3D.rows << " " << Joints3D.cols << endl;
+
+
+    //std::vector<cv::Mat> channels3(3);
+    //cv::Mat channels3[3];
+    //cv::split(Joints3D, channels3);
+    /*
     for ( int i=0; i < Joints3D.cols; i++){
         // No face
-        if (channels[2].at<float>(0,i) > 0 && (i < 15 || i > 18))
-            glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(i) + Twc.m[4] * channels[1].at<float>(i) + Twc.m[8] * channels[2].at<float>(i),
-                       Twc.m[13] + Twc.m[1] * channels[0].at<float>(i) + Twc.m[5] * channels[1].at<float>(i) + Twc.m[9] * channels[2].at<float>(i),
-                       Twc.m[14] + Twc.m[2] * channels[0].at<float>(i) + Twc.m[6] * channels[1].at<float>(i) + Twc.m[10] * channels[2].at<float>(i));
+        if (channels3[2].at<float>(0,i) > 0 && (i < 15 || i > 18))
+            glVertex3f(Twc.m[12] + Twc.m[0] * channels3[0].at<float>(i) + Twc.m[4] * channels3[1].at<float>(i) + Twc.m[8] * channels3[2].at<float>(i),
+                       Twc.m[13] + Twc.m[1] * channels3[0].at<float>(i) + Twc.m[5] * channels3[1].at<float>(i) + Twc.m[9] * channels3[2].at<float>(i),
+                       Twc.m[14] + Twc.m[2] * channels3[0].at<float>(i) + Twc.m[6] * channels3[1].at<float>(i) + Twc.m[10] * channels3[2].at<float>(i));
     }
     glEnd();
 
@@ -502,17 +511,52 @@ void Viewer::Draw3DJoints(cv::Mat Joints3D) {
     for(int i=0; i<20; i++){
         int p1 = links[0][i];
         int p2 = links[1][i];
-        if (channels[2].at<float>(p1) > 0 && channels[2].at<float>(p2) > 0){
-            glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(p1) + Twc.m[4] * channels[1].at<float>(p1) + Twc.m[8] * channels[2].at<float>(p1),
-                       Twc.m[13] + Twc.m[1] * channels[0].at<float>(p1) + Twc.m[5] * channels[1].at<float>(p1) + Twc.m[9] * channels[2].at<float>(p1),
-                       Twc.m[14] + Twc.m[2] * channels[0].at<float>(p1) + Twc.m[6] * channels[1].at<float>(p1) + Twc.m[10] * channels[2].at<float>(p1));
-            glVertex3f(Twc.m[12] + Twc.m[0] * channels[0].at<float>(p2) + Twc.m[4] * channels[1].at<float>(p2) + Twc.m[8] * channels[2].at<float>(p2),
-                       Twc.m[13] + Twc.m[1] * channels[0].at<float>(p2) + Twc.m[5] * channels[1].at<float>(p2) + Twc.m[9] * channels[2].at<float>(p2),
-                       Twc.m[14] + Twc.m[2] * channels[0].at<float>(p2) + Twc.m[6] * channels[1].at<float>(p2) + Twc.m[10] * channels[2].at<float>(p2));
+        if (channels3[2].at<float>(p1) > 0 && channels3[2].at<float>(p2) > 0){
+            glVertex3f(Twc.m[12] + Twc.m[0] * channels3[0].at<float>(p1) + Twc.m[4] * channels3[1].at<float>(p1) + Twc.m[8] * channels3[2].at<float>(p1),
+                       Twc.m[13] + Twc.m[1] * channels3[0].at<float>(p1) + Twc.m[5] * channels3[1].at<float>(p1) + Twc.m[9] * channels3[2].at<float>(p1),
+                       Twc.m[14] + Twc.m[2] * channels3[0].at<float>(p1) + Twc.m[6] * channels3[1].at<float>(p1) + Twc.m[10] * channels3[2].at<float>(p1));
+            glVertex3f(Twc.m[12] + Twc.m[0] * channels3[0].at<float>(p2) + Twc.m[4] * channels3[1].at<float>(p2) + Twc.m[8] * channels3[2].at<float>(p2),
+                       Twc.m[13] + Twc.m[1] * channels3[0].at<float>(p2) + Twc.m[5] * channels3[1].at<float>(p2) + Twc.m[9] * channels3[2].at<float>(p2),
+                       Twc.m[14] + Twc.m[2] * channels3[0].at<float>(p2) + Twc.m[6] * channels3[1].at<float>(p2) + Twc.m[10] * channels3[2].at<float>(p2));
         }
     }
     glEnd();
+    */
 
+    for ( int i=0; i < Joints3D.cols; i++){
+        // No face
+        if (Joints3D.at<cv::Vec3f>(i)[2] > 0 && (i < 15 || i > 18))
+            glVertex3f(Twc.m[12] + Twc.m[0] * Joints3D.at<cv::Vec3f>(i)[0]
+                    + Twc.m[4] * Joints3D.at<cv::Vec3f>(i)[1]
+                    + Twc.m[8] * Joints3D.at<cv::Vec3f>(i)[2],
+                       Twc.m[13] + Twc.m[1] * Joints3D.at<cv::Vec3f>(i)[0]
+                    + Twc.m[5] * Joints3D.at<cv::Vec3f>(i)[1]
+                    + Twc.m[9] * Joints3D.at<cv::Vec3f>(i)[2],
+                       Twc.m[14] + Twc.m[2] * Joints3D.at<cv::Vec3f>(i)[0]
+                    + Twc.m[6] * Joints3D.at<cv::Vec3f>(i)[1]
+                    + Twc.m[10] * Joints3D.at<cv::Vec3f>(i)[2]);
+    }
+    glEnd();
+
+
+    glLineWidth(5);
+    glColor3f(0.0,0.0,0.8);
+    int links[2][20] = {{0, 2, 2, 4, 5, 5, 7, 8 ,8 ,8,10,10,22,23,24,13,13,19,20,21},
+                        {1, 1, 3, 3, 1, 6, 6, 1, 9,12, 9,11,11,11,11,12,14,14,14,14}};
+    glBegin(GL_LINES);
+    for(int i=0; i<20; i++){
+        int p1 = links[0][i];
+        int p2 = links[1][i];
+        if (Joints3D.at<cv::Vec3f>(p1)[2] > 0 && Joints3D.at<cv::Vec3f>(p2)[2] > 0){
+            glVertex3f(Twc.m[12] + Twc.m[0] * Joints3D.at<cv::Vec3f>(p1)[0] + Twc.m[4] * Joints3D.at<cv::Vec3f>(p1)[1] + Twc.m[8] * Joints3D.at<cv::Vec3f>(p1)[2],
+                       Twc.m[13] + Twc.m[1] * Joints3D.at<cv::Vec3f>(p1)[0] + Twc.m[5] * Joints3D.at<cv::Vec3f>(p1)[1] + Twc.m[9] * Joints3D.at<cv::Vec3f>(p1)[2],
+                       Twc.m[14] + Twc.m[2] * Joints3D.at<cv::Vec3f>(p1)[0] + Twc.m[6] * Joints3D.at<cv::Vec3f>(p1)[1] + Twc.m[10] * Joints3D.at<cv::Vec3f>(p1)[2]);
+            glVertex3f(Twc.m[12] + Twc.m[0] * Joints3D.at<cv::Vec3f>(p2)[0] + Twc.m[4] * Joints3D.at<cv::Vec3f>(p2)[1] + Twc.m[8] * Joints3D.at<cv::Vec3f>(p2)[2],
+                       Twc.m[13] + Twc.m[1] * Joints3D.at<cv::Vec3f>(p2)[0] + Twc.m[5] * Joints3D.at<cv::Vec3f>(p2)[1] + Twc.m[9] * Joints3D.at<cv::Vec3f>(p2)[2],
+                       Twc.m[14] + Twc.m[2] * Joints3D.at<cv::Vec3f>(p2)[0] + Twc.m[6] * Joints3D.at<cv::Vec3f>(p2)[1] + Twc.m[10] * Joints3D.at<cv::Vec3f>(p2)[2]);
+        }
+    }
+    glEnd();
 }
 
 void Viewer::Draw2DHumanLoc(cv::Mat Joints3D){
@@ -521,34 +565,35 @@ void Viewer::Draw2DHumanLoc(cv::Mat Joints3D){
     cv::Vec3f HIP_L = Joints3D.at<cv::Vec3f>(12);
 
     //Calculate Human body coordinate system in 2D and 3D
+    ///need to be modified
     cv::Mat HBCoord3D = CalcHumanBodyCoord(HIP_R, HIP_C, HIP_L);
-
-    //TODO: Coord2D normalization
     cv::Mat HBCoord2D_TopView = cv::Mat(2,2, CV_32FC1);
     HBCoord2D_TopView.at<float>(0,0) = HBCoord3D.at<float>(0,0);
     HBCoord2D_TopView.at<float>(1,1) = HBCoord3D.at<float>(2,2);
     HBCoord2D_TopView.at<float>(0,1) = HBCoord3D.at<float>(0,2);
     HBCoord2D_TopView.at<float>(1,0) = HBCoord3D.at<float>(2,0);
 
+    double x2D = Twc.m[12] + Twc.m[0] * HIP_C(0) + Twc.m[4] * HIP_C(1) + Twc.m[8] * HIP_C(2);
+    double z2D = Twc.m[14] + Twc.m[2] * HIP_C(0) + Twc.m[6] * HIP_C(1) + Twc.m[10] * HIP_C(2);
     // Location
     glPointSize(100.0/abs(mViewpointY));
     glBegin(GL_POINTS);
     glColor3f(0.8f, 0.0f, 0.8f);
-    glVertex3f(HIP_C(0), 0.0, HIP_C(2));
+    glVertex3f(x2D, 0.0, z2D);
     glEnd();
 
     // Orientation
     glLineWidth(25.0/abs(mViewpointY));
     glColor3f(1.f,0.f,0.f);
     glBegin(GL_LINES);
-    glVertex3f(HIP_C(0), 0.0, HIP_C(2));
-    glVertex3f(HIP_C(0) + HBCoord3D.at<float>(0,2)*0.5, 0.0, HIP_C(2) + HBCoord3D.at<float>(2,2)*0.5);
+    glVertex3f(x2D, 0.0, z2D);
+    glVertex3f(x2D + HBCoord3D.at<float>(0,2)*0.5, 0.0, z2D + HBCoord3D.at<float>(2,2)*0.5);
     glEnd();
     glLineWidth(25.0/abs(mViewpointY));
     glColor3f(0.f,0.f,1.0f);
     glBegin(GL_LINES);
-    glVertex3f(HIP_C(0), 0.0, HIP_C(2));
-    glVertex3f(HIP_C(0) + HBCoord3D.at<float>(0,0)*0.5, 0.0, HIP_C(2) + HBCoord3D.at<float>(2,0)*0.5);
+    glVertex3f(x2D, 0.0, z2D);
+    glVertex3f(x2D + HBCoord3D.at<float>(0,0)*0.5, 0.0, z2D + HBCoord3D.at<float>(2,0)*0.5);
     glEnd();
 }
 
@@ -727,6 +772,7 @@ double Viewer::AnglePoint2Plane(cv::Vec3f point3d, cv::Mat plane3d){
         beta = beta + 3.1415/2;
     }
 
+    beta = beta*180.0/3.1415;
     return beta;
 }
 
@@ -749,7 +795,7 @@ double Viewer::AnglePoint2Point(cv::Vec3f point1, cv::Vec3f point_mid, cv::Vec3f
 
 
     }
-
+    alpha = alpha*180.0/3.1415;
     return alpha;
 }
 

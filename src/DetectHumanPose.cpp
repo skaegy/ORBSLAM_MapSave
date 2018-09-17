@@ -101,6 +101,7 @@ void OpDetector::Run() {
     for (int i = 0; i < 25; i ++){
         KFs3D[i] = KFInitialization(stateNum, measureNum, wk, vk, pk);
     }
+    //TODO: Skeleton tree for smooth
     int LowerLimb[13]={8,9,10,11,12,13,14,19,20,21,22,23,24};
 
 
@@ -191,13 +192,16 @@ void OpDetector::Run() {
                                 measurementPt.at<float>(0) = jointRaw[0];
                                 measurementPt.at<float>(1) = jointRaw[1];
                                 measurementPt.at<float>(2) = jointRaw[2];
+                                //TODO: Refine measurement
                             }
                             else{ // If there is  no measurement
                                 cv::Mat lastState = KFs3D[idx].statePost;
                                 measurementPt = KFs3D[idx].measurementMatrix*lastState;
+                                //TODO: Refine measurement
                             }
                             Mat estimatedPt = KFs3D[idx].correct(measurementPt);
                             KFs3D[idx].statePost = KFs3D[idx].statePre + KFs3D[idx].gain * KFs3D[idx].temp5;
+                            //TODO: Refine KFs3D[idx].statePost
 
                             jointSmooth[0] = KFs3D[idx].statePost.at<float>(0);
                             jointSmooth[1] = KFs3D[idx].statePost.at<float>(1);

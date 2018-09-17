@@ -1,7 +1,7 @@
 //
 // Created by skaegy on 07/08/18.
 //
-
+//TODO: NEED TO CHANGE .back(), .begin() ===> iterator it, *it
 #include <iostream>
 #include <vector>
 #include <list>
@@ -68,6 +68,19 @@ int main()
     rs_cfg.enable_stream(RS2_STREAM_DEPTH, IMG_WIDTH, IMG_HEIGHT, RS2_FORMAT_Z16, IN_FRAME); // Enable default depth
     rs_cfg.enable_stream(RS2_STREAM_COLOR, IMG_WIDTH, IMG_HEIGHT, RS2_FORMAT_BGR8, IN_FRAME);
     pipeline_profile rs_device = pipe.start(rs_cfg);
+    rs2::device selected_device = rs_device.get_device();
+    auto depth_sensor = selected_device.first<rs2::depth_sensor>();
+    /// Open realsense Emitter
+    if (depth_sensor.supports(RS2_OPTION_EMITTER_ENABLED))
+    {
+        depth_sensor.set_option(RS2_OPTION_EMITTER_ENABLED, 1.f); // Enable emitter
+    }
+    if (depth_sensor.supports(RS2_OPTION_LASER_POWER))
+    {
+        // Query min and max values:
+        auto range = depth_sensor.get_option_range(RS2_OPTION_LASER_POWER);
+        depth_sensor.set_option(RS2_OPTION_LASER_POWER, range.max); // Set max power
+    }
     rs2::align align(RS2_STREAM_COLOR);
     colorizer color_map;
 
@@ -76,7 +89,7 @@ int main()
     spat_filter.set_option(RS2_OPTION_FILTER_SMOOTH_ALPHA, 0.5);
     spat_filter.set_option(RS2_OPTION_FILTER_SMOOTH_DELTA, 20);
     temporal_filter temp_filter;   //
-    temp_filter.set_option(RS2_OPTION_FILTER_SMOOTH_ALPHA, 0.5);
+    temp_filter.set_option(RS2_OPTION_FILTER_SMOOTH_ALPHA, 0.8);
     temp_filter.set_option(RS2_OPTION_FILTER_SMOOTH_DELTA, 50);
     disparity_transform depth_to_disparity(true);
     disparity_transform disparity_to_depth(false);
@@ -99,7 +112,7 @@ int main()
             // Filter
             depth = depth_to_disparity.process(depth);
             depth = spat_filter.process(depth);
-            //depth = temp_filter.process(depth);
+            depth = temp_filter.process(depth);
             depth = disparity_to_depth.process(depth);
 
             // realsense frame to mat
@@ -107,6 +120,14 @@ int main()
             cv::Mat imD(cv::Size(IMG_WIDTH, IMG_HEIGHT), CV_16UC1, (void *) depth.get_data(), cv::Mat::AUTO_STEP);
             imD.setTo(cv::Scalar(0), imD < 300);
             imD.setTo(cv::Scalar(0), imD > 4000);
+
+            /*
+            cv::Mat imD_bilaSmooth, imD_output;
+            imD.convertTo(imD_bilaSmooth, CV_32FC1);
+            cv::bilateralFilter(imD_bilaSmooth, imD_output,3, 4.3e7, 16);
+            imD_output.convertTo(imD_output, CV_16UC1);
+             */
+
 
             //cv::imwrite("1.png",imD);
             //cv::imwrite("1.jpg",imRGB);

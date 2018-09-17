@@ -1,0 +1,29 @@
+%YAML:1.0
+
+logging_level: 3
+model_pose: BODY_25
+model_folder: /home/skaegy/Github/openpose/models/
+net_resolution_row: 160
+net_resolution_col: 80
+output_resolution_row: -1
+output_resolution_col: -1
+num_gpu_start: 0
+scale_number: 1
+scale_gap: 0.3
+render_threshold: 0.2
+alpha_pose: 0.01
+
+# Camera intrinsic parameters
+Camera.fx: 618.738
+Camera.fy: 618.296
+Camera.cx: 324.929
+Camera.cy: 241.133
+#Camera.fx: 309.369
+#Camera.fy: 309.148
+#Camera.cx: 214.465
+#Camera.cy: 120.566
+
+# Kalman filter parameters
+KF.wk: 0.1
+KF.vk: 0.1
+KF.pk: 1

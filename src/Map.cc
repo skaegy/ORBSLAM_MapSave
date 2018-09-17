@@ -88,7 +88,20 @@ template<class Archive>
             ar & *pMapPoint;
             mspMapPoints.insert(pMapPoint);
         }
-        
+
+        /*
+        /// Fast load: can not be further used for mapping
+        ar & nItems;
+        cout << "{INFO}mspKeyFrames size = " << nItems << endl;
+
+        for (int i = 0; i < nItems; i = i + (int)(nItems/50)) {
+            KeyFrame* pKeyFrame = new KeyFrame;
+            ar & *pKeyFrame;
+            mspKeyFrames.insert(pKeyFrame);
+        }
+        */
+
+        /// Normal load: the speed is pretty low when Keyframe number is large
         ar & nItems;
         cout << "{INFO}mspKeyFrames size = " << nItems << endl;
 
@@ -96,8 +109,7 @@ template<class Archive>
             KeyFrame* pKeyFrame = new KeyFrame;
             ar & *pKeyFrame;
             mspKeyFrames.insert(pKeyFrame);
-        }     
-          
+        }
 
         ar & nItems;
         cout << "{INFO}mvpKeyFrameOrigins size = " << nItems << endl;
@@ -108,7 +120,6 @@ template<class Archive>
             ar & *pKeyFrame;
             mvpKeyFrameOrigins.push_back(*mspKeyFrames.begin());
         }
-
 
 
         ar & const_cast<long unsigned int &> (mnMaxKFid);

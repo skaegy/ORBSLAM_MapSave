@@ -94,23 +94,15 @@ int main()
         }
     }
 
-    for(int ni=0; ni<nImages; ++ni)
+    for(int ni=0; ni<nImages; ni++)
     {
+        cout << "Frame: " << ni << endl;
         // Read image and depthmap from file
         imRGB = cv::imread(strImagePath + "/" + vstrImageFilenamesRGB[ni],cv::IMREAD_ANYCOLOR);
         imD = cv::imread(strImagePath + "/" + vstrImageFilenamesD[ni],cv::IMREAD_ANYDEPTH);
+        imD.setTo(cv::Scalar(0), imD < 300);
+        imD.setTo(cv::Scalar(0), imD > 4000);
 
-        //imD.setTo(cv::Scalar(0), imD < 500);
-        imD.setTo(cv::Scalar(0), imD > 6000);
-        cv::Mat imD_medSmooth;
-        cv::medianBlur ( imD, imD_medSmooth, 5);
-        cv::Mat imD_bilaSmooth, imD_output;
-        imD_medSmooth.convertTo(imD_bilaSmooth, CV_32FC1);
-        cv::bilateralFilter(imD_bilaSmooth, imD_output,7, 4.3e7, 2);
-        imD_output.convertTo(imD_output, CV_16UC1);
-
-        //imwrite("1.png", imD_output);
-        cout << "Frame: " << ni+1 ;
         double tframe = vTimestamps[ni];
 
 #ifdef COMPILEDWITHC11
@@ -132,7 +124,8 @@ int main()
         if (OpStandBy)
             SLAM.mpOpDetector->OpLoadImageRGBD(imOP, imD, tframe);
 
-        // Wait for openpose
+        // TODO: WAIT FOR OPENPOSE FINISH FLAG (OR TIMESTAMP EQUALS)
+        /*
         int SLAMFrame = ni + 1;
         int OpFrame;
         while (bHumanPose){
@@ -141,8 +134,7 @@ int main()
                 break;
             }
         }
-
-        //cout << "Processed frame: " << SLAMFrame << " " << OpFrame <<endl;
+         */
 
 #ifdef COMPILEDWITHC11
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
@@ -151,7 +143,7 @@ int main()
 #endif
 
         double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
-        cout << " Timecost: " << ttrack << endl;
+
         vTimesTrack[ni]=ttrack;
 
         // Wait to load the next frame
@@ -163,8 +155,6 @@ int main()
 
         if(ttrack<T)
             usleep((T-ttrack)*1e3);
-
-        //sleep(3);
     }
 
     // Tracking time statistics
@@ -179,17 +169,14 @@ int main()
     cout << "mean tracking time: " << totaltime/nImages << endl;
 
     // Save map points and trajectory
-
-    SLAM.SaveMap("Map_RGBD_LoadImage.bin");
+    if (!bReuseMap)
+        SLAM.SaveMap("Map_RGBD_LoadImage.bin");
     SLAM.SaveKeyFrameTrajectory("KeyFrameTrajectory.txt");
     SLAM.SaveCameraTrajectory("CameraTrajectory.txt");
-    if (bHumanPose){
-        SLAM.SaveSkeletonTimeStamp("SkeletonTimeStamp.txt");
+    if (bHumanPose)
         SLAM.SaveSkeletonTrajectory("SkeletonTrajectory.txt");
-    }
 
-
-    sleep(5);
+    sleep(3);
 
     return 0;
 }

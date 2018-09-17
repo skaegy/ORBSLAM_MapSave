@@ -10,8 +10,7 @@
 # "rtsp://146.169.171.163:8554/test"
 # /dev/video3
 
-Video_source: /dev/video2
-  #"rtsp://146.169.167.125:8554/test"
+Video_source: "rtsp://146.169.169.129:8554/test"
 
 # the Orb Vocabulary File Path. Either .bin File or .txt File is Ok.
 
@@ -27,11 +26,11 @@ is_ReuseMap: 1
 
 # the Exsiting Map File Path (if the above item is 0, this is unnessesary)
 
-ReuseMap: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/Monocular/Map_RGBD_LoadImage.bin
-
+ReuseMap: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/Monocular/Map_RGBD_Huxley307_2.bin
+#Map_RGB_Huxley307
 # Load Image Path (While using Load_Image program)
 
-LoadImagePath: /home/skaegy/Data/SLAM_Monocular1
+LoadImagePath: /media/skaegy/USB-IROS-GY/Demo_OPSLAM
 
 # Whether detect human pose (0 for no, 1 for yes)
 

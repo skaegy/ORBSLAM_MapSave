@@ -51,7 +51,7 @@ void MapDrawer::DrawMapPoints(){
 
     glPointSize(mPointSize);
     glBegin(GL_POINTS);
-    glColor3f(0.0,0.0,0.0);
+    glColor3f(0.3,0.3,0.3);
 
     for(size_t i=0, iend=vpMPs.size(); i<iend;i++)
     {
@@ -59,7 +59,7 @@ void MapDrawer::DrawMapPoints(){
             continue;
         cv::Mat pos = vpMPs[i]->GetWorldPos();
         /// Only Show points not on the floor plane
-        if (pos.at<float>(1) < (0.5*mCamZ) && pos.at<float>(1) > (-1 + mCamZ) )
+        if (pos.at<float>(1) < (0.5*mCamZ) && pos.at<float>(1) > (-2 + mCamZ) )
             glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
     }
     glEnd();
@@ -67,7 +67,7 @@ void MapDrawer::DrawMapPoints(){
 
     glPointSize(mPointSize);
     glBegin(GL_POINTS);
-    glColor3f(1.0,0.0,0.0);
+    glColor3f(0.8,0.0,0.0);
 
     for(set<MapPoint*>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++)
     {
@@ -75,7 +75,7 @@ void MapDrawer::DrawMapPoints(){
             continue;
         cv::Mat pos = (*sit)->GetWorldPos();
         /// Only Show points not on the floor plane
-        if (pos.at<float>(1) < (0.5*mCamZ) && pos.at<float>(1) > (-1 + mCamZ) )
+        if (pos.at<float>(1) < (0.5*mCamZ) && pos.at<float>(1) > (-1.2 + mCamZ) )
             glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
 
     }
@@ -91,7 +91,7 @@ void MapDrawer::DrawMapPoints2D(){
 
     glPointSize(mPointSize);
     glBegin(GL_POINTS);
-    glColor3f(0.7,0.7,0.7);
+    glColor3f(0.2,0.5,0.7);
 
     for(size_t i=0, iend=vpMPs.size(); i<iend;i++)
     {
@@ -99,7 +99,7 @@ void MapDrawer::DrawMapPoints2D(){
             continue;
         cv::Mat pos = vpMPs[i]->GetWorldPos();
         /// Only Show points not on the floor plane
-        if (pos.at<float>(1) < (0.5*mCamZ) && pos.at<float>(1) > (-1 + mCamZ)  )
+        if (pos.at<float>(1) < (0.5*mCamZ) && pos.at<float>(1) > (-0.8 + mCamZ)  )
             glVertex3f(pos.at<float>(0),0.0,pos.at<float>(2));
     }
     glEnd();

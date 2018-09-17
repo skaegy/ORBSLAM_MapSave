@@ -10,6 +10,7 @@ Camera.fy: 618.298
 Camera.cx: 324.929
 Camera.cy: 241.133
 
+
 Camera.k1: 0.000000
 Camera.k2: 0.000000
 Camera.p1: 0.000000
@@ -24,14 +25,14 @@ Camera.RGB: 1
 
 Camera.width: 640
 Camera.height: 480
-Camera.Z: 1
+Camera.Z: 0.8
 
 #--------------------------------------------------------------------------------------------
 # ORB Parameters
 #--------------------------------------------------------------------------------------------
 
 # ORB Extractor: Number of features per image
-ORBextractor.nFeatures: 1500
+ORBextractor.nFeatures: 1000
 
 # ORB Extractor: Scale factor between levels in the scale pyramid 	
 ORBextractor.scaleFactor: 1.2
@@ -43,7 +44,7 @@ ORBextractor.nLevels: 8
 # Image is divided in a grid. At each cell FAST are extracted imposing a minimum response.
 # Firstly we impose iniThFAST. If no corners are detected we impose a lower value minThFAST
 # You can lower these values if your images have low contrast			
-ORBextractor.iniThFAST: 20
+ORBextractor.iniThFAST: 32
 ORBextractor.minThFAST: 7
 
 #--------------------------------------------------------------------------------------------
