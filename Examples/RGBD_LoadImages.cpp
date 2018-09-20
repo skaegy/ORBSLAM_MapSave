@@ -8,9 +8,7 @@
 #include <algorithm>
 #include <fstream>
 #include <chrono>
-
 #include<opencv2/core/core.hpp>
-
 #include<System.h>
 
 using namespace std;
@@ -100,7 +98,6 @@ int main()
         imRGB = cv::imread(strImagePath + "/" + vstrImageFilenamesRGB[ni],cv::IMREAD_ANYCOLOR);
         imD = cv::imread(strImagePath + "/" + vstrImageFilenamesD[ni],cv::IMREAD_ANYDEPTH);
 
-        //imD.setTo(cv::Scalar(0), imD < 500);
         imD.setTo(cv::Scalar(0), imD > 6000);
         cv::Mat imD_medSmooth;
         cv::medianBlur ( imD, imD_medSmooth, 5);
@@ -109,7 +106,6 @@ int main()
         cv::bilateralFilter(imD_bilaSmooth, imD_output,7, 4.3e7, 2);
         imD_output.convertTo(imD_output, CV_16UC1);
 
-        //imwrite("1.png", imD_output);
         cout << "Frame: " << ni+1 ;
         double tframe = vTimestamps[ni];
 

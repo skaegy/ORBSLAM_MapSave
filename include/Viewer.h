@@ -66,6 +66,8 @@ public:
 private:
     void Draw3DJoints(cv::Mat Joints3D);
 
+	void Draw3DLowerJoints(cv::Mat Joints3D, int mode);
+
     void Draw2DHumanLoc(cv::Mat Joints3D);
 
     void Draw2DCamLoc(pangolin::OpenGlMatrix &Twc);

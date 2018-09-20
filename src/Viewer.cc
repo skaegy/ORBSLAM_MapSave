@@ -71,7 +71,7 @@ void Viewer::Run()
 {
     mbFinished = false;
 
-    pangolin::CreateWindowAndBind("ORB-SLAM2: Map Viewer",mWindowSizeY,mWindowSizeX);
+    pangolin::CreateWindowAndBind("                Mobile Gait System -- Hamlyn Centre",mWindowSizeY,mWindowSizeX);
 
     // 3D Mouse handler requires depth testing to be enabled
     glEnable(GL_DEPTH_TEST);
@@ -106,8 +106,14 @@ void Viewer::Run()
     pangolin::Var<double> Lshank("menu.L_shank(deg)",  90.0, -180.0, 180.0);
     pangolin::Var<double> Rankle("menu.R_ankle(deg)",  90.0, -180.0, 180.0);
     pangolin::Var<double> Lankle("menu.L_ankle(deg)",  90.0, -180.0, 180.0);
-    //pangolin::Var<double> Rftp("menu.R_foot progression (deg)",  90.0, -180.0, 180.0);
-    //pangolin::Var<double> Lftp("menu.L_foot progression(deg)",  90.0, -180.0, 180.0);
+    pangolin::Var<double> Rftp("menu.R_ftprogress. (deg)",  90.0, -180.0, 180.0);
+    pangolin::Var<double> Lftp("menu.L_ftprogress. (deg)",  90.0, -180.0, 180.0);
+    pangolin::Var<double> RThigh("menu.R_thigh (deg)",  90.0, -180.0, 180.0);
+    pangolin::Var<double> LThigh("menu.L_thigh (deg)",  90.0, -180.0, 180.0);
+    pangolin::Var<double> RKnee("menu.R_knee (deg)",  90.0, -180.0, 180.0);
+    pangolin::Var<double> LKnee("menu.L_knee (deg)",  90.0, -180.0, 180.0);
+    pangolin::Var<double> RFoot("menu.R_foot (deg)",  90.0, -180.0, 180.0);
+    pangolin::Var<double> LFoot("menu.L_foot (deg)",  90.0, -180.0, 180.0);
 
     // Define Camera Render Object (for view / scene browsing)
     pangolin::OpenGlRenderState s_cam(
@@ -116,7 +122,7 @@ void Viewer::Run()
                 );
     pangolin::OpenGlRenderState s_cam_fix(
             pangolin::ProjectionMatrix(mWindowSizeY,mWindowSizeX,mViewpointF,mViewpointF,960,540,0.1,1000),
-            pangolin::ModelViewLookAt(mViewpointX,mViewpointY,mViewpointZ, 0,0,0,0.0,-1.0, 0.0)
+            pangolin::ModelViewLookAt(mViewpointX,mViewpointY,mViewpointZ, mViewpointX,0,mViewpointZ,mViewpointX,-1.0, mViewpointZ)
     );
 
     // Add named OpenGL viewport to window and provide 3D Handler
@@ -144,7 +150,7 @@ void Viewer::Run()
             .SetLock(pangolin::LockLeft, pangolin::LockBottom);
 
     // Add Global coordinate system
-    /*
+
     pangolin::Renderable tree;
     tree.Add( std::make_shared<pangolin::Axis>() );
     d_cam.SetDrawFunction([&](pangolin::View& view){
@@ -154,10 +160,9 @@ void Viewer::Run()
     pangolin::Renderable tree_fix;
     tree_fix.Add( std::make_shared<pangolin::Axis>() );
     d_cam_fix.SetDrawFunction([&](pangolin::View& view){
-        view.Activate();
+        view.Activate(s_cam_fix);
         tree_fix.Render();
     });
-*/
 
 
     Twc.SetIdentity();
@@ -311,12 +316,15 @@ void Viewer::Run()
         if(mbHumanPose){
             if (mpOpDetector->mvJoints3DEKF.size()>0){
                 std::vector<cv::Mat>::iterator it = mpOpDetector->mvJoints3DEKF.end();
+                std::vector<cv::Mat>::iterator it_raw = mpOpDetector->mvJoints3Draw.end();
                 //cv::Mat Joints3Dekf = mpOpDetector->mvJoints3DEKF.back();
                 cv::Mat Joints3Dekf = *(it-1);
+                cv::Mat Joints3Draw = *(it_raw-1);
                 //std::vector<cv::Mat> mvJoints3DEKF = mpOpDetector->mvJoints3DEKF;
 
                 d_cam.Activate(s_cam);
-                Draw3DJoints(Joints3Dekf);
+                Draw3DLowerJoints(Joints3Dekf,0);
+                Draw3DLowerJoints(Joints3Draw,1);
                 //Draw3Dtrj(mvJoints3DEKF, mTrjHistory);
 
                 d_cam_fix.Activate(s_cam_fix);
@@ -486,43 +494,6 @@ void Viewer::Draw3DJoints(cv::Mat Joints3D) {
     glBegin(GL_POINTS);
     glColor3f(0.2f, 0.2f, 0.f);
 
-    //cout << Joints3D.empty() << " " << Joints3D.type() << " " << Joints3D.channels() << " " << Joints3D.rows << " " << Joints3D.cols << endl;
-
-
-    //std::vector<cv::Mat> channels3(3);
-    //cv::Mat channels3[3];
-    //cv::split(Joints3D, channels3);
-    /*
-    for ( int i=0; i < Joints3D.cols; i++){
-        // No face
-        if (channels3[2].at<float>(0,i) > 0 && (i < 15 || i > 18))
-            glVertex3f(Twc.m[12] + Twc.m[0] * channels3[0].at<float>(i) + Twc.m[4] * channels3[1].at<float>(i) + Twc.m[8] * channels3[2].at<float>(i),
-                       Twc.m[13] + Twc.m[1] * channels3[0].at<float>(i) + Twc.m[5] * channels3[1].at<float>(i) + Twc.m[9] * channels3[2].at<float>(i),
-                       Twc.m[14] + Twc.m[2] * channels3[0].at<float>(i) + Twc.m[6] * channels3[1].at<float>(i) + Twc.m[10] * channels3[2].at<float>(i));
-    }
-    glEnd();
-
-
-    glLineWidth(5);
-    glColor3f(0.0,0.0,0.8);
-    int links[2][20] = {{0, 2, 2, 4, 5, 5, 7, 8 ,8 ,8,10,10,22,23,24,13,13,19,20,21},
-                        {1, 1, 3, 3, 1, 6, 6, 1, 9,12, 9,11,11,11,11,12,14,14,14,14}};
-    glBegin(GL_LINES);
-    for(int i=0; i<20; i++){
-        int p1 = links[0][i];
-        int p2 = links[1][i];
-        if (channels3[2].at<float>(p1) > 0 && channels3[2].at<float>(p2) > 0){
-            glVertex3f(Twc.m[12] + Twc.m[0] * channels3[0].at<float>(p1) + Twc.m[4] * channels3[1].at<float>(p1) + Twc.m[8] * channels3[2].at<float>(p1),
-                       Twc.m[13] + Twc.m[1] * channels3[0].at<float>(p1) + Twc.m[5] * channels3[1].at<float>(p1) + Twc.m[9] * channels3[2].at<float>(p1),
-                       Twc.m[14] + Twc.m[2] * channels3[0].at<float>(p1) + Twc.m[6] * channels3[1].at<float>(p1) + Twc.m[10] * channels3[2].at<float>(p1));
-            glVertex3f(Twc.m[12] + Twc.m[0] * channels3[0].at<float>(p2) + Twc.m[4] * channels3[1].at<float>(p2) + Twc.m[8] * channels3[2].at<float>(p2),
-                       Twc.m[13] + Twc.m[1] * channels3[0].at<float>(p2) + Twc.m[5] * channels3[1].at<float>(p2) + Twc.m[9] * channels3[2].at<float>(p2),
-                       Twc.m[14] + Twc.m[2] * channels3[0].at<float>(p2) + Twc.m[6] * channels3[1].at<float>(p2) + Twc.m[10] * channels3[2].at<float>(p2));
-        }
-    }
-    glEnd();
-    */
-
     for ( int i=0; i < Joints3D.cols; i++){
         // No face
         if (Joints3D.at<cv::Vec3f>(i)[2] > 0 && (i < 15 || i > 18))
@@ -542,9 +513,10 @@ void Viewer::Draw3DJoints(cv::Mat Joints3D) {
     glLineWidth(5);
     glColor3f(0.0,0.0,0.8);
     int links[2][20] = {{0, 2, 2, 4, 5, 5, 7, 8 ,8 ,8,10,10,22,23,24,13,13,19,20,21},
-                        {1, 1, 3, 3, 1, 6, 6, 1, 9,12, 9,11,11,11,11,12,14,14,14,14}};
+                            {1, 1, 3, 3, 1, 6, 6, 1, 9,12, 9,11,11,11,11,12,14,14,14,14}};
+    int linkNum = 20;
     glBegin(GL_LINES);
-    for(int i=0; i<20; i++){
+    for(int i=0; i<linkNum; i++){
         int p1 = links[0][i];
         int p2 = links[1][i];
         if (Joints3D.at<cv::Vec3f>(p1)[2] > 0 && Joints3D.at<cv::Vec3f>(p2)[2] > 0){
@@ -557,6 +529,77 @@ void Viewer::Draw3DJoints(cv::Mat Joints3D) {
         }
     }
     glEnd();
+}
+
+void Viewer::Draw3DLowerJoints(cv::Mat Joints3D, int mode){
+    // Draw point and links the 3D point clound
+    glLineWidth(5);
+    if (mode == 0)
+        glColor3f(0.0,0.0,0.8);
+    else
+        glColor3f(0.0,0.8,0.5);
+
+    int links[2][12] = {{8 ,8,10,10,22,23,24,13,13,19,20,21},
+                        {9,12, 9,11,11,11,11,12,14,14,14,14}};
+    int linkNum = 12;
+    glBegin(GL_LINES);
+    for(int i=0; i<linkNum; i++){
+        int p1 = links[0][i];
+        int p2 = links[1][i];
+        if (Joints3D.at<cv::Vec3f>(p1)[2] > 0 && Joints3D.at<cv::Vec3f>(p2)[2] > 0){
+            if (mode == 0){
+                glVertex3f(Twc.m[12] + Twc.m[0] * Joints3D.at<cv::Vec3f>(p1)[0] + Twc.m[4] * Joints3D.at<cv::Vec3f>(p1)[1] + Twc.m[8] * Joints3D.at<cv::Vec3f>(p1)[2],
+                           Twc.m[13] + Twc.m[1] * Joints3D.at<cv::Vec3f>(p1)[0] + Twc.m[5] * Joints3D.at<cv::Vec3f>(p1)[1] + Twc.m[9] * Joints3D.at<cv::Vec3f>(p1)[2],
+                           Twc.m[14] + Twc.m[2] * Joints3D.at<cv::Vec3f>(p1)[0] + Twc.m[6] * Joints3D.at<cv::Vec3f>(p1)[1] + Twc.m[10] * Joints3D.at<cv::Vec3f>(p1)[2]);
+                glVertex3f(Twc.m[12] + Twc.m[0] * Joints3D.at<cv::Vec3f>(p2)[0] + Twc.m[4] * Joints3D.at<cv::Vec3f>(p2)[1] + Twc.m[8] * Joints3D.at<cv::Vec3f>(p2)[2],
+                           Twc.m[13] + Twc.m[1] * Joints3D.at<cv::Vec3f>(p2)[0] + Twc.m[5] * Joints3D.at<cv::Vec3f>(p2)[1] + Twc.m[9] * Joints3D.at<cv::Vec3f>(p2)[2],
+                           Twc.m[14] + Twc.m[2] * Joints3D.at<cv::Vec3f>(p2)[0] + Twc.m[6] * Joints3D.at<cv::Vec3f>(p2)[1] + Twc.m[10] * Joints3D.at<cv::Vec3f>(p2)[2]);
+            }
+            else if (mode == 1){
+                glVertex3f(Twc.m[12] + Twc.m[0] * Joints3D.at<cv::Vec3f>(p1)[0] + Twc.m[4] * Joints3D.at<cv::Vec3f>(p1)[1] + Twc.m[8] * Joints3D.at<cv::Vec3f>(p1)[2] + 0.5,
+                           Twc.m[13] + Twc.m[1] * Joints3D.at<cv::Vec3f>(p1)[0] + Twc.m[5] * Joints3D.at<cv::Vec3f>(p1)[1] + Twc.m[9] * Joints3D.at<cv::Vec3f>(p1)[2],
+                           Twc.m[14] + Twc.m[2] * Joints3D.at<cv::Vec3f>(p1)[0] + Twc.m[6] * Joints3D.at<cv::Vec3f>(p1)[1] + Twc.m[10] * Joints3D.at<cv::Vec3f>(p1)[2]);
+                glVertex3f(Twc.m[12] + Twc.m[0] * Joints3D.at<cv::Vec3f>(p2)[0] + Twc.m[4] * Joints3D.at<cv::Vec3f>(p2)[1] + Twc.m[8] * Joints3D.at<cv::Vec3f>(p2)[2] + 0.5,
+                           Twc.m[13] + Twc.m[1] * Joints3D.at<cv::Vec3f>(p2)[0] + Twc.m[5] * Joints3D.at<cv::Vec3f>(p2)[1] + Twc.m[9] * Joints3D.at<cv::Vec3f>(p2)[2],
+                           Twc.m[14] + Twc.m[2] * Joints3D.at<cv::Vec3f>(p2)[0] + Twc.m[6] * Joints3D.at<cv::Vec3f>(p2)[1] + Twc.m[10] * Joints3D.at<cv::Vec3f>(p2)[2]);
+
+            }
+        }
+    }
+    glEnd();
+
+    glPointSize(50);
+    glBegin(GL_POINTS);
+    glColor3f(0.2f, 0.2f, 0.f);
+    for ( int i=0; i < Joints3D.cols; i++){
+
+        // No face
+        if (Joints3D.at<cv::Vec3f>(i)[2] > 7 && (i < 15 || i > 18))
+            if (mode == 0){
+                glVertex3f(Twc.m[12] + Twc.m[0] * Joints3D.at<cv::Vec3f>(i)[0]
+                           + Twc.m[4] * Joints3D.at<cv::Vec3f>(i)[1]
+                           + Twc.m[8] * Joints3D.at<cv::Vec3f>(i)[2],
+                           Twc.m[13] + Twc.m[1] * Joints3D.at<cv::Vec3f>(i)[0]
+                           + Twc.m[5] * Joints3D.at<cv::Vec3f>(i)[1]
+                           + Twc.m[9] * Joints3D.at<cv::Vec3f>(i)[2],
+                           Twc.m[14] + Twc.m[2] * Joints3D.at<cv::Vec3f>(i)[0]
+                           + Twc.m[6] * Joints3D.at<cv::Vec3f>(i)[1]
+                           + Twc.m[10] * Joints3D.at<cv::Vec3f>(i)[2]);
+            }
+            else if (mode == 1){
+                glVertex3f(Twc.m[12] + Twc.m[0] * Joints3D.at<cv::Vec3f>(i)[0]
+                           + Twc.m[4] * Joints3D.at<cv::Vec3f>(i)[1]
+                           + Twc.m[8] * Joints3D.at<cv::Vec3f>(i)[2] + 0.5,
+                           Twc.m[13] + Twc.m[1] * Joints3D.at<cv::Vec3f>(i)[0]
+                           + Twc.m[5] * Joints3D.at<cv::Vec3f>(i)[1]
+                           + Twc.m[9] * Joints3D.at<cv::Vec3f>(i)[2],
+                           Twc.m[14] + Twc.m[2] * Joints3D.at<cv::Vec3f>(i)[0]
+                           + Twc.m[6] * Joints3D.at<cv::Vec3f>(i)[1]
+                           + Twc.m[10] * Joints3D.at<cv::Vec3f>(i)[2]);
+            }
+    }
+    glEnd();
+
 }
 
 void Viewer::Draw2DHumanLoc(cv::Mat Joints3D){
@@ -612,11 +655,11 @@ void Viewer::Draw2DCamLoc(pangolin::OpenGlMatrix &Twc){
     glColor3f(0.f,1.0f,0.f);
     glBegin(GL_LINES);
     glVertex3f(CamLocX, 0.0, CamLocZ);
-    glVertex3f(CamLocX+(xx+zx)*mCameraSize, 0.0, CamLocZ+(zz+xz)*mCameraSize);
+    glVertex3f(CamLocX+(xx+zx)*mCameraSize*2, 0.0, CamLocZ+(zz+xz)*mCameraSize*2);
     glVertex3f(CamLocX, 0.0, CamLocZ);
-    glVertex3f(CamLocX-(xx-zx)*mCameraSize, 0.0, CamLocZ+(zz-xz)*mCameraSize);
-    glVertex3f(CamLocX+(xx+zx)*mCameraSize, 0.0, CamLocZ+(zz+xz)*mCameraSize);
-    glVertex3f(CamLocX-(xx-zx)*mCameraSize, 0.0, CamLocZ+(zz-xz)*mCameraSize);
+    glVertex3f(CamLocX-(xx-zx)*mCameraSize*2, 0.0, CamLocZ+(zz-xz)*mCameraSize*2);
+    glVertex3f(CamLocX+(xx+zx)*mCameraSize*2, 0.0, CamLocZ+(zz+xz)*mCameraSize*2);
+    glVertex3f(CamLocX-(xx-zx)*mCameraSize*2, 0.0, CamLocZ+(zz-xz)*mCameraSize*2);
     glEnd();
 
 

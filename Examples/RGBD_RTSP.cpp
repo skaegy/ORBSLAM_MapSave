@@ -13,13 +13,11 @@
 #include <algorithm>
 #include <fstream>
 #include <omp.h>
-#include <librealsense2/rs.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include "System.h"
 
 using namespace std;
-using namespace rs2;
 
 int main()
 {

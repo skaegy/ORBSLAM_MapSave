@@ -99,11 +99,12 @@ void OpDetector::Run() {
     const int stateNum = 6;
     const int measureNum = 3;
     for (int i = 0; i < 25; i ++){
-        KFs3D[i] = KFInitialization(stateNum, measureNum, wk, vk, pk);
-    }
+        KFs3D[i] = KFInitialization(stateNum, measureNum, wk, vk, pk);}
     //TODO: Skeleton tree for smooth
     int LowerLimb[13]={8,9,10,11,12,13,14,19,20,21,22,23,24};
-
+    //int LowerPair[2][12]={{8, 8, 9,10,11,11,11,12,13,14,14,14},
+                          //{9,12,10,11,22,23,24,13,14,19,20,21}};
+    InitHumanParams(&mHumanParams);
 
     while (!mbStopped ) {
         if (mbHumanPose && mlLoadImage.size() > 0) {
@@ -130,7 +131,6 @@ void OpDetector::Run() {
             //poseRenderer.renderPose(outputArray, poseKeypoints, scaleInputToOutput);
             // Step 7 - OpenPose output format to cv::Mat
             //auto OutputImage = opOutputToCvMat.formatToCvMat(outputArray);
-
             // Step 7: Extract most significant 2D joints and Compute 3D positions (if RGB-D)
             cv::Mat joints2D = poseKeypoints.getConstCvMat();
 
@@ -163,19 +163,25 @@ void OpDetector::Run() {
                         cv::Mat skel_last = *lit_last;
                         Joints3D = RemoveSkelFlip(Joints3D, skel_last);
                     }
-                     */
+                    */
                     cv::Mat Joints3D_EKFsmooth;
-                    Joints3D.copyTo(Joints3D_EKFsmooth);
 
                     /// KALMAN SMOOTHER
+                    Joints3D_EKFsmooth = KFupdate(Joints3D, stateNum, measureNum);
+
+                    /// BODY PHYSICAL CONSTRAINTS
+                    // Update the human body parameters during the tracking, which will be used as the follow physical constraints in the smoothing
+                    UpdateHumanParams(Joints3D_EKFsmooth, &mHumanParams);
+
+                    /*
                     for (int i = 0; i < 13; i ++){
                         int idx = LowerLimb[i];
-                        Vec3f jointRaw = Joints3D.at<cv::Vec3f>(idx);
+                        Vec3f jointRaw = Joints3D_EKFsmooth.at<cv::Vec3f>(idx);
                         Vec3f jointSmooth;
                         if (isAfterFirst[idx] == false){  // (Frame = 1)
                             if (jointRaw[2] > 0){
                                 Mat predictionPt = KFs3D[idx].predict();
-                                Mat measurementPt = Mat::zeros(measureNum, 1, CV_32F); //measurement(x,y)
+                                Mat measurementPt = Mat::zeros(measureNum, 1, CV_32F); //measurement(x,y,z)
                                 measurementPt.at<float>(0) = jointRaw[0];
                                 measurementPt.at<float>(1) = jointRaw[1];
                                 measurementPt.at<float>(2) = jointRaw[2];
@@ -209,6 +215,7 @@ void OpDetector::Run() {
                             Joints3D_EKFsmooth.at<cv::Vec3f>(idx) = jointSmooth;
                         }
                     }
+                     */
                     mvJoints3DEKF.push_back(Joints3D_EKFsmooth);
                     mvTimestamp.push_back(timestamp);
                 }
@@ -223,7 +230,7 @@ void OpDetector::Run() {
     }
 }
 
-void OpDetector::SetViewer(ORB_SLAM2::Viewer *pViewer) {
+void OpDetector::SetViewer(ORB_SLAM2::Viewer *pViewer){
     mpViewer = pViewer;
 }
 
@@ -444,12 +451,83 @@ cv::KalmanFilter OpDetector::KFInitialization(const int stateNum, const int meas
     return KF;
 }
 
+cv::Mat OpDetector::KFupdate(cv::Mat Joints3D, const int stateNum, const int measureNum){
+    int LowerLimb[13]={8,9,10,11,12,13,14,19,20,21,22,23,24};
+    cv::Mat Joints3D_KFsmooth;
+    Joints3D_KFsmooth = Joints3D.clone();
+
+    /// KALMAN SMOOTHER
+    for (int i = 0; i < 13; i ++){
+        int idx = LowerLimb[i];
+        Vec3f jointRaw = Joints3D_KFsmooth.at<cv::Vec3f>(idx);
+        Vec3f jointSmooth;
+        Mat prediction = KFs3D[idx].predict();
+        Mat measurementPt = Mat::zeros(measureNum, 1, CV_32F); //measurement(x,y)
+        if (jointRaw[2] > 0){  // If there is measurement
+            measurementPt.at<float>(0) = jointRaw[0];
+            measurementPt.at<float>(1) = jointRaw[1];
+            measurementPt.at<float>(2) = jointRaw[2];
+        }
+        else{ // If there is  no measurement
+            cv::Mat lastState = KFs3D[idx].statePost;
+            measurementPt = KFs3D[idx].measurementMatrix*lastState;
+        }
+
+        Mat estimatedPt = KFs3D[idx].correct(measurementPt);
+        KFs3D[idx].statePost = KFs3D[idx].statePre + KFs3D[idx].gain * KFs3D[idx].temp5;
+            // Refinement according to the human body constraints
+
+        Mat updatePt;
+        if (idx == HIP_L)
+            updatePt = updateMeasurement(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(HIP_C), mHumanParams.Link_hip_L);
+        else if (idx == HIP_R)
+            updatePt = updateMeasurement(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(HIP_C), mHumanParams.Link_hip_R);
+        else if (idx == KNEE_R)
+            updatePt = updateMeasurement(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(HIP_R), mHumanParams.Link_thigh_R);
+        else if (idx == KNEE_L)
+            updatePt = updateMeasurement(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(HIP_L), mHumanParams.Link_thigh_L);
+        else if (idx == ANKLE_R)
+            updatePt = updateMeasurement(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(KNEE_R), mHumanParams.Link_shank_R);
+        else if (idx == ANKLE_L)
+            updatePt = updateMeasurement(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(KNEE_L), mHumanParams.Link_shank_L);
+        else if (idx == TOE_IN_R)
+            updatePt = updateMeasurement(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(ANKLE_R), mHumanParams.Link_foot_R);
+        else if (idx == TOE_OUT_R)
+            updatePt = updateMeasurement(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(ANKLE_R), mHumanParams.Link_foot_R);
+        else if (idx == HEEL_R)
+            updatePt = updateMeasurement(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(ANKLE_R), mHumanParams.Link_heel_R);
+        else if (idx == TOE_IN_L)
+            updatePt = updateMeasurement(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(ANKLE_L), mHumanParams.Link_foot_L);
+        else if (idx == TOE_OUT_L)
+            updatePt = updateMeasurement(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(ANKLE_L), mHumanParams.Link_foot_L);
+        else if (idx == HEEL_L)
+            updatePt = updateMeasurement(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(ANKLE_L), mHumanParams.Link_heel_L);
+
+        if (i>0){
+            KFs3D[idx].statePost.at<float>(0) = updatePt.at<float>(0);
+            KFs3D[idx].statePost.at<float>(1) = updatePt.at<float>(1);
+            KFs3D[idx].statePost.at<float>(2) = updatePt.at<float>(2);
+            jointSmooth[0] = updatePt.at<float>(0);
+            jointSmooth[1] = updatePt.at<float>(1);
+            jointSmooth[2] = updatePt.at<float>(2);
+            Joints3D_KFsmooth.at<cv::Vec3f>(idx) = jointSmooth;
+        }
+        else{
+            jointSmooth[0] = estimatedPt.at<float>(0);
+            jointSmooth[1] = estimatedPt.at<float>(1);
+            jointSmooth[2] = estimatedPt.at<float>(2);
+            Joints3D_KFsmooth.at<cv::Vec3f>(idx) = jointSmooth;
+        }
+    }
+    return Joints3D_KFsmooth;
+}
+
 cv::Mat OpDetector::RemoveSkelFlip(cv::Mat skel_curr, cv::Mat skel_last){
     cv::Mat outMat;
     int LowerLimb[12]={9,10,11,12,13,14};
     int N = (int)(sizeof(LowerLimb)/sizeof(LowerLimb[0]));
-    int LowerPair[2][12]={{9,10,11,12,13,14,19,20,21,22,23,24},
-                          {12,13,14,9,10,11,22,23,24,19,20,21}};
+    //int LowerPair[2][12]={{9,10,11,12,13,14,19,20,21,22,23,24},
+                          //{12,13,14,9,10,11,22,23,24,19,20,21}};
 
     cv::Mat tmp1 = skel_curr.colRange(0,9).clone();
     cv::Mat tmp2 = skel_curr.colRange(9,12).clone();
@@ -489,13 +567,187 @@ float OpDetector::CalcSkelDist(cv::Mat skel_curr, cv::Mat skel_last, int *JointS
         // Only calculate the distance between two valid joints
         if (skel_curr.at<cv::Vec3f>(idx)[2]>0 && skel_last.at<cv::Vec3f>(idx)[2] >0){
             SkelDist = SkelDist + cv::norm(skel_curr.at<cv::Vec3f>(idx), skel_last.at<cv::Vec3f>(idx));
-
-            cout << idx << " " << skel_curr.at<cv::Vec3f>(idx) << " " << skel_last.at<cv::Vec3f>(idx) << " "
-                    << cv::norm(skel_curr.at<cv::Vec3f>(idx), skel_last.at<cv::Vec3f>(idx)) << endl;
         }
 
     }
     return SkelDist;
+}
+
+void OpDetector::InitHumanParams(struct HumanParams *mHumanParams){
+    mHumanParams->Link_thigh_L = 0.0;
+    mHumanParams->Link_thigh_R = 0.0;
+    mHumanParams->Link_shank_L = 0.0;
+    mHumanParams->Link_shank_R = 0.0;
+    mHumanParams->Link_foot_L = 0.0;
+    mHumanParams->Link_foot_R = 0.0;
+    mHumanParams->Link_hip_L = 0.0;
+    mHumanParams->Link_hip_R = 0.0;
+    mHumanParams->Link_heel_L = 0.0;
+    mHumanParams->Link_heel_R = 0.0;
+    mHumanParams->Cnt_thigh_L = 0.0;
+    mHumanParams->Cnt_thigh_R = 0.0;
+    mHumanParams->Cnt_shank_L = 0.0;
+    mHumanParams->Cnt_shank_R = 0.0;
+    mHumanParams->Cnt_foot_L = 0.0;
+    mHumanParams->Cnt_foot_R = 0.0;
+    mHumanParams->Cnt_hip_L = 0.0;
+    mHumanParams->Cnt_hip_R = 0.0;
+    mHumanParams->Cnt_heel_L = 0.0;
+    mHumanParams->Cnt_heel_R = 0.0;
+}
+
+void OpDetector::UpdateHumanParams(cv::Mat Joints3D, struct HumanParams *mHumanParams){
+    int LowerPair[2][12]={{8, 8, 9,10,11,11,11,12,13,14,14,14},
+                          {9,12,10,11,22,23,24,13,14,19,20,21}};
+    for (int i = 0; i < 12; i ++){
+        cv::Vec3f P1 = Joints3D.at<cv::Vec3f>(LowerPair[0][i]);
+        cv::Vec3f P2 = Joints3D.at<cv::Vec3f>(LowerPair[1][i]);
+        double LinkLength = 0.0;
+        switch (i){
+            case 0: // HIP_R
+                if (P1[2] > 0 && P2[2]){ // have valid depth value
+                    LinkLength = cv::norm(P1, P2, cv::NORM_L2);
+                    mHumanParams->Cnt_hip_R++;
+                }
+                if (mHumanParams->Cnt_hip_R == 0 || mHumanParams->Cnt_hip_R == 1)
+                    mHumanParams->Link_hip_R = LinkLength;
+                else
+                    mHumanParams->Link_hip_R = LinkLength*(double)(1.0/mHumanParams->Cnt_hip_R) +
+                                              mHumanParams->Link_hip_R*(double)((mHumanParams->Cnt_hip_R-1.0)/mHumanParams->Cnt_hip_R);
+            case 1: // HIP_L
+                if (P1[2] > 0 && P2[2]){ // have valid depth value
+                    LinkLength = cv::norm(P1, P2, cv::NORM_L2);
+                    mHumanParams->Cnt_hip_L++;
+                }
+                if (mHumanParams->Cnt_hip_L == 0 || mHumanParams->Cnt_hip_L == 1)
+                    mHumanParams->Link_hip_L = LinkLength;
+                else
+                    mHumanParams->Link_hip_L = LinkLength*(1.0/mHumanParams->Cnt_hip_L) +
+                                              mHumanParams->Link_hip_L*((mHumanParams->Cnt_hip_L-1.0)/mHumanParams->Cnt_hip_L);
+            case 2: // THIGH_R
+                if (P1[2] > 0 && P2[2]){ // have valid depth value
+                    LinkLength = cv::norm(P1, P2, cv::NORM_L2);
+                    mHumanParams->Cnt_thigh_R++;
+                }
+                if (mHumanParams->Cnt_thigh_R == 0 || mHumanParams->Cnt_thigh_R == 1)
+                    mHumanParams->Link_thigh_R= LinkLength;
+                else
+                    mHumanParams->Link_thigh_R = LinkLength*(1.0/mHumanParams->Cnt_thigh_R) +
+                                                mHumanParams->Link_thigh_R*((mHumanParams->Cnt_thigh_R-1.0)/mHumanParams->Cnt_thigh_R);
+            case 3: // SHANK_R
+                if (P1[2] > 0 && P2[2]){ // have valid depth value
+                    LinkLength = cv::norm(P1, P2, cv::NORM_L2);
+                    mHumanParams->Cnt_shank_R++;
+                }
+                if (mHumanParams->Cnt_shank_R == 0 || mHumanParams->Cnt_shank_R == 1)
+                    mHumanParams->Link_shank_R= LinkLength;
+                else
+                    mHumanParams->Link_shank_R = LinkLength*(1.0/mHumanParams->Cnt_shank_R) +
+                                                 mHumanParams->Link_shank_R*((mHumanParams->Cnt_shank_R-1.0)/mHumanParams->Cnt_shank_R);
+            case 4: // FOOT_R
+                if (P1[2] > 0 && P2[2]){ // have valid depth value
+                    LinkLength = cv::norm(P1, P2, cv::NORM_L2);
+                    mHumanParams->Cnt_foot_R++;
+                }
+                if (mHumanParams->Cnt_foot_R == 0 || mHumanParams->Cnt_foot_R == 1)
+                    mHumanParams->Link_foot_R= LinkLength;
+                else
+                    mHumanParams->Link_foot_R = LinkLength*(1.0/mHumanParams->Cnt_foot_R) +
+                                               mHumanParams->Link_foot_R*((mHumanParams->Cnt_foot_R-1.0)/mHumanParams->Cnt_foot_R);
+            case 5: // FOOT_R
+                if (P1[2] > 0 && P2[2]){ // have valid depth value
+                    LinkLength = cv::norm(P1, P2, cv::NORM_L2);
+                    mHumanParams->Cnt_foot_R++;
+                }
+                if (mHumanParams->Cnt_foot_R == 0 || mHumanParams->Cnt_foot_R == 1)
+                    mHumanParams->Link_foot_R= LinkLength;
+                else
+                    mHumanParams->Link_foot_R = LinkLength*(1.0/mHumanParams->Cnt_foot_R) +
+                                                mHumanParams->Link_foot_R*((mHumanParams->Cnt_foot_R-1.0)/mHumanParams->Cnt_foot_R);
+            case 6: // HEEL_R
+                if (P1[2] > 0 && P2[2]){ // have valid depth value
+                    LinkLength = cv::norm(P1, P2, cv::NORM_L2);
+                    mHumanParams->Cnt_heel_R++;
+                }
+                if (mHumanParams->Cnt_heel_R == 0 || mHumanParams->Cnt_heel_R == 1)
+                    mHumanParams->Link_heel_R= LinkLength;
+                else
+                    mHumanParams->Link_heel_R = LinkLength*(1.0/mHumanParams->Cnt_heel_R) +
+                                                mHumanParams->Link_heel_R*((mHumanParams->Cnt_heel_R-1.0)/mHumanParams->Cnt_heel_R);
+            case 7: //THIGH_L
+                if (P1[2] > 0 && P2[2]){ // have valid depth value
+                    LinkLength = cv::norm(P1, P2, cv::NORM_L2);
+                    mHumanParams->Cnt_thigh_L++;
+                }
+                if (mHumanParams->Cnt_thigh_L == 0 || mHumanParams->Cnt_thigh_L == 1)
+                    mHumanParams->Link_thigh_L= LinkLength;
+                else
+                    mHumanParams->Link_thigh_L = LinkLength*(1.0/mHumanParams->Cnt_thigh_L) +
+                                                 mHumanParams->Link_thigh_L*((mHumanParams->Cnt_thigh_L-1.0)/mHumanParams->Cnt_thigh_L);
+            case 8: //SHANK_L
+                if (P1[2] > 0 && P2[2]){ // have valid depth value
+                    LinkLength = cv::norm(P1, P2, cv::NORM_L2);
+                    mHumanParams->Cnt_shank_L++;
+                }
+                if (mHumanParams->Cnt_shank_L == 0 || mHumanParams->Cnt_shank_L == 1)
+                    mHumanParams->Link_shank_L= LinkLength;
+                else
+                    mHumanParams->Link_shank_L = LinkLength*(1.0/mHumanParams->Cnt_shank_L) +
+                                                 mHumanParams->Link_shank_L*((mHumanParams->Cnt_shank_L-1.0)/mHumanParams->Cnt_shank_L);
+            case 9: // FOOT_L
+                if (P1[2] > 0 && P2[2]){ // have valid depth value
+                    LinkLength = cv::norm(P1, P2, cv::NORM_L2);
+                    mHumanParams->Cnt_foot_L++;
+                }
+                if (mHumanParams->Cnt_foot_L == 0 || mHumanParams->Cnt_foot_L == 1)
+                    mHumanParams->Link_foot_L= LinkLength;
+                else
+                    mHumanParams->Link_foot_L = LinkLength*(1.0/mHumanParams->Cnt_foot_L) +
+                                               mHumanParams->Link_foot_L*((mHumanParams->Cnt_foot_L-1.0)/mHumanParams->Cnt_foot_L);
+            case 10: // FOOT_L
+                if (P1[2] > 0 && P2[2]){ // have valid depth value
+                    LinkLength = cv::norm(P1, P2, cv::NORM_L2);
+                    mHumanParams->Cnt_foot_L++;
+                }
+                if (mHumanParams->Cnt_foot_L == 0 || mHumanParams->Cnt_foot_L == 1)
+                    mHumanParams->Link_foot_L= LinkLength;
+                else
+                    mHumanParams->Link_foot_L = LinkLength*(1.0/mHumanParams->Cnt_foot_L) +
+                                                mHumanParams->Link_foot_L*((mHumanParams->Cnt_foot_L-1.0)/mHumanParams->Cnt_foot_L);
+            case 11: // HEEL_L
+                if (P1[2] > 0 && P2[2]){ // have valid depth value
+                    LinkLength = cv::norm(P1, P2, cv::NORM_L2);
+                    mHumanParams->Cnt_heel_L++;
+                }
+                if (mHumanParams->Cnt_heel_L == 0 || mHumanParams->Cnt_heel_L == 1)
+                    mHumanParams->Link_heel_L= LinkLength;
+                else
+                    mHumanParams->Link_foot_L = LinkLength*(1.0/mHumanParams->Cnt_heel_L) +
+                                                mHumanParams->Link_heel_L*((mHumanParams->Cnt_heel_L-1.0)/mHumanParams->Cnt_heel_L);
+        }
+    }
+}
+
+cv::Mat OpDetector::updateMeasurement(cv::Mat measurementPt, cv::Vec3f rootPt, double linkConstraint ){
+    Mat updatePt;
+    updatePt = measurementPt.clone();
+    if (linkConstraint > 0){
+        Mat rootPtmat = Mat::zeros(3,1,CV_32F);
+        rootPtmat.at<float>(0) = rootPt[0];
+        rootPtmat.at<float>(1) = rootPt[1];
+        rootPtmat.at<float>(2) = rootPt[2];
+        double vec_x = updatePt.at<float>(0) - rootPtmat.at<float>(0);
+        double vec_y = updatePt.at<float>(1) - rootPtmat.at<float>(1);
+        double vec_z = updatePt.at<float>(2) - rootPtmat.at<float>(2);
+        double linkLength = cv::norm(updatePt, rootPtmat, cv::NORM_L2);
+        if (linkLength > linkConstraint){
+            updatePt.at<float>(0) = rootPtmat.at<float>(0) + sqrt(linkConstraint/linkLength)*vec_x;
+            updatePt.at<float>(1) = rootPtmat.at<float>(1) + sqrt(linkConstraint/linkLength)*vec_y;
+            updatePt.at<float>(2) = rootPtmat.at<float>(2) + sqrt(linkConstraint/linkLength)*vec_z;
+            //out << "Data: " << linkLength << " " << linkConstraint << " " << measurementPt << " " << updatePt << " " << rootPtmat << endl;
+        }
+    }
+    return updatePt;
 }
 
 void OpDetector::RequestFinish(){

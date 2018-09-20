@@ -44,7 +44,7 @@ Camera.bf: 33.0
 Camera.RGB: 1
 
 # Close/Far threshold. Baseline times.
-ThDepth: 20.0
+ThDepth: 50.0
 
 # Deptmap values factor 
 DepthMapFactor: 1000.0
@@ -54,7 +54,7 @@ DepthMapFactor: 1000.0
 #--------------------------------------------------------------------------------------------
 
 # ORB Extractor: Number of features per image
-ORBextractor.nFeatures: 2000
+ORBextractor.nFeatures: 1000
 
 # ORB Extractor: Scale factor between levels in the scale pyramid 	
 ORBextractor.scaleFactor: 1.5
@@ -76,14 +76,14 @@ Viewer.KeyFrameSize: 0.05
 Viewer.KeyFrameLineWidth: 1
 Viewer.GraphLineWidth: 0.9
 Viewer.PointSize: 5
-Viewer.CameraSize: 0.2
+Viewer.CameraSize: 0.1
 Viewer.CameraLineWidth: 2
 #Viewer.ViewpointX: 0
 #Viewer.ViewpointY: -0.7
 #Viewer.ViewpointZ: -1.8
-Viewer.ViewpointX: 0
-Viewer.ViewpointY: -6
-Viewer.ViewpointZ: -0.1
+Viewer.ViewpointX: -0.1
+Viewer.ViewpointY: -7
+Viewer.ViewpointZ: 1.5
 Viewer.ViewpointF: 500
 Viewer.TrjHistory: 10
 Viewer.WindowSizeX: 1080.0
