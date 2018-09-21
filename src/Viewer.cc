@@ -67,8 +67,7 @@ Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer
     mbARUCODetect = bARUCODetect;
 }
 
-void Viewer::Run()
-{
+void Viewer::Run(){
     mbFinished = false;
 
     pangolin::CreateWindowAndBind("                Mobile Gait System -- Hamlyn Centre",mWindowSizeY,mWindowSizeX);
@@ -93,7 +92,6 @@ void Viewer::Run()
     pangolin::Var<bool> menuReset("menu.Reset",false,false);
     pangolin::Var<bool> menuShutDown("menu.Shut Down",false,false);
 
-
     pangolin::Var<double> showPosX("menu.X(red)", 0);
     pangolin::Var<double> showPosY("menu.Y(green)", 0);
     pangolin::Var<double> showPosZ("menu.Z(blue)", 0);
@@ -102,18 +100,18 @@ void Viewer::Run()
     pangolin::Var<double> distHipY("menu.HIP_C: Y", 0);
     pangolin::Var<double> distHipZ("menu.HIP_C: Z", 0);
 
-    pangolin::Var<double> Rshank("menu.R_shank(deg)", 90.0, -180.0, 180.0);
-    pangolin::Var<double> Lshank("menu.L_shank(deg)",  90.0, -180.0, 180.0);
-    pangolin::Var<double> Rankle("menu.R_ankle(deg)",  90.0, -180.0, 180.0);
-    pangolin::Var<double> Lankle("menu.L_ankle(deg)",  90.0, -180.0, 180.0);
-    pangolin::Var<double> Rftp("menu.R_ftprogress. (deg)",  90.0, -180.0, 180.0);
-    pangolin::Var<double> Lftp("menu.L_ftprogress. (deg)",  90.0, -180.0, 180.0);
-    pangolin::Var<double> RThigh("menu.R_thigh (deg)",  90.0, -180.0, 180.0);
-    pangolin::Var<double> LThigh("menu.L_thigh (deg)",  90.0, -180.0, 180.0);
-    pangolin::Var<double> RKnee("menu.R_knee (deg)",  90.0, -180.0, 180.0);
-    pangolin::Var<double> LKnee("menu.L_knee (deg)",  90.0, -180.0, 180.0);
-    pangolin::Var<double> RFoot("menu.R_foot (deg)",  90.0, -180.0, 180.0);
-    pangolin::Var<double> LFoot("menu.L_foot (deg)",  90.0, -180.0, 180.0);
+    pangolin::Var<double> Rshank("menu.R_shank(deg)", 90.0, 0.0, 270.0);
+    pangolin::Var<double> Lshank("menu.L_shank(deg)",  90.0, -0.0, 270.0);
+    pangolin::Var<double> Rankle("menu.R_ankle(deg)",  90.0, -0.0, 270.0);
+    pangolin::Var<double> Lankle("menu.L_ankle(deg)",  90.0, -0.0, 270.0);
+    pangolin::Var<double> Rftp("menu.R_ftp(deg)",  0.0, -90.0, 90.0);
+    pangolin::Var<double> Lftp("menu.L_ftp(deg)",  0.0, -90.0, 90.0);
+    pangolin::Var<double> RThigh("menu.R_thigh (deg)",  90.0, -0.0, 270.0);
+    pangolin::Var<double> LThigh("menu.L_thigh (deg)",  90.0, -0.0, 270.0);
+    pangolin::Var<double> RKnee("menu.R_knee (deg)",  90.0, -0.0, 270.0);
+    pangolin::Var<double> LKnee("menu.L_knee (deg)",  90.0, -0.0, 270.0);
+    pangolin::Var<double> RFoot("menu.R_foot (deg)",  90.0, -0.0, 270.0);
+    pangolin::Var<double> LFoot("menu.L_foot (deg)",  90.0, -0.0, 270.0);
 
     // Define Camera Render Object (for view / scene browsing)
     pangolin::OpenGlRenderState s_cam(
@@ -164,7 +162,6 @@ void Viewer::Run()
         tree_fix.Render();
     });
 
-
     Twc.SetIdentity();
 
     /// OPENCV IMSHOW
@@ -177,6 +174,13 @@ void Viewer::Run()
 
     const auto time_begin = std::chrono::high_resolution_clock::now();
     double lastTime = 0.0;
+    mJointAngles.LAnkle=90.0;    mJointAngles.RAnkle=90.0;
+    mJointAngles.LFoot =90.0;    mJointAngles.RFoot =90.0;
+    mJointAngles.LFTP  =90.0;    mJointAngles.RFTP  =90.0;
+    mJointAngles.LKnee =90.0;    mJointAngles.RKnee =90.0;
+    mJointAngles.LShank=90.0;    mJointAngles.RShank=90.0;
+    mJointAngles.LThigh=90.0;    mJointAngles.RThigh=90.0;
+
     while(1)
     {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -323,8 +327,8 @@ void Viewer::Run()
                 //std::vector<cv::Mat> mvJoints3DEKF = mpOpDetector->mvJoints3DEKF;
 
                 d_cam.Activate(s_cam);
-                Draw3DLowerJoints(Joints3Dekf,0);
-                Draw3DLowerJoints(Joints3Draw,1);
+                Draw3DLowerJoints(Joints3Dekf,0); // Smoothed Skeleton
+                //Draw3DLowerJoints(Joints3Draw,1); // Raw Skeleton
                 //Draw3Dtrj(mvJoints3DEKF, mTrjHistory);
 
                 d_cam_fix.Activate(s_cam_fix);
@@ -336,30 +340,40 @@ void Viewer::Run()
                     distHipX = Twc.m[12] + hip_c[0]; distHipY = Twc.m[13] + hip_c[1]; distHipZ = Twc.m[14] + hip_c[2];
                 }
 
+
                 // Show angles
+                CalcHumanJointAngles(Joints3Dekf, &mJointAngles, Twc);
+                Rshank = mJointAngles.RShank;  Lshank = mJointAngles.LShank;
+                RThigh = mJointAngles.RThigh;  LThigh = mJointAngles.LThigh;
+                Rankle = mJointAngles.RAnkle;  Lankle = mJointAngles.LAnkle;
+                RKnee  = mJointAngles.RKnee;   LKnee  = mJointAngles.LKnee;
+                RFoot  = mJointAngles.RFoot;   LFoot  = mJointAngles.LFoot;
+                Rftp   = mJointAngles.RFTP;    Lftp   = mJointAngles.LFTP;
+                /*
                 // Right shank angle
                 if (Joints3Dekf.at<cv::Vec3f>(9)[2] > 0 &&
                     Joints3Dekf.at<cv::Vec3f>(10)[2] > 0 &&
                     Joints3Dekf.at<cv::Vec3f>(11)[2] > 0) {
-                    Rshank = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(9),Joints3Dekf.at<cv::Vec3f>(10),Joints3Dekf.at<cv::Vec3f>(11));
+                    Rshank = AngleLink2Link(Joints3Dekf.at<cv::Vec3f>(9),Joints3Dekf.at<cv::Vec3f>(10),Joints3Dekf.at<cv::Vec3f>(11));
                 }
                 // Left shank angle
                 if (Joints3Dekf.at<cv::Vec3f>(12)[2] > 0 &&Joints3Dekf.at<cv::Vec3f>(13)[2] > 0 &&Joints3Dekf.at<cv::Vec3f>(14)[2] > 0) {
-                    Lshank = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(12),Joints3Dekf.at<cv::Vec3f>(13),Joints3Dekf.at<cv::Vec3f>(14));
+                    Lshank = AngleLink2Link(Joints3Dekf.at<cv::Vec3f>(12),Joints3Dekf.at<cv::Vec3f>(13),Joints3Dekf.at<cv::Vec3f>(14));
                 }
                 // Right ankle angle
                 if (Joints3Dekf.at<cv::Vec3f>(10)[2] > 0 &&Joints3Dekf.at<cv::Vec3f>(11)[2] > 0 &&
                     Joints3Dekf.at<cv::Vec3f>(22)[2] > 0 &&Joints3Dekf.at<cv::Vec3f>(23)[2] > 0){
                     cv::Vec3f FootR_mid = (Joints3Dekf.at<cv::Vec3f>(22) + Joints3Dekf.at<cv::Vec3f>(23));
-                    Rankle = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(10),Joints3Dekf.at<cv::Vec3f>(11),FootR_mid*0.5);
+                    Rankle = AngleLink2Link(Joints3Dekf.at<cv::Vec3f>(10),Joints3Dekf.at<cv::Vec3f>(11),FootR_mid*0.5);
                 }
 
                 // Left ankle angle
                 if (Joints3Dekf.at<cv::Vec3f>(13)[2] > 0 && Joints3Dekf.at<cv::Vec3f>(14)[2] > 0 &&
                     Joints3Dekf.at<cv::Vec3f>(19)[2] > 0 &&Joints3Dekf.at<cv::Vec3f>(20)[2] > 0){
                     cv::Vec3f FootL_mid = (Joints3Dekf.at<cv::Vec3f>(19) + Joints3Dekf.at<cv::Vec3f>(20));
-                    Lankle = AnglePoint2Point(Joints3Dekf.at<cv::Vec3f>(13),Joints3Dekf.at<cv::Vec3f>(14),FootL_mid*0.5);
+                    Lankle = AngleLink2Link(Joints3Dekf.at<cv::Vec3f>(13),Joints3Dekf.at<cv::Vec3f>(14),FootL_mid*0.5);
                 }
+                 */
             }
         }
 
@@ -574,7 +588,7 @@ void Viewer::Draw3DLowerJoints(cv::Mat Joints3D, int mode){
     for ( int i=0; i < Joints3D.cols; i++){
 
         // No face
-        if (Joints3D.at<cv::Vec3f>(i)[2] > 7 && (i < 15 || i > 18))
+        if (Joints3D.at<cv::Vec3f>(i)[2] > 7 && (i < 15 || i > 18)){
             if (mode == 0){
                 glVertex3f(Twc.m[12] + Twc.m[0] * Joints3D.at<cv::Vec3f>(i)[0]
                            + Twc.m[4] * Joints3D.at<cv::Vec3f>(i)[1]
@@ -597,6 +611,7 @@ void Viewer::Draw3DLowerJoints(cv::Mat Joints3D, int mode){
                            + Twc.m[6] * Joints3D.at<cv::Vec3f>(i)[1]
                            + Twc.m[10] * Joints3D.at<cv::Vec3f>(i)[2]);
             }
+        }
     }
     glEnd();
 
@@ -801,25 +816,7 @@ void Viewer::Draw2Dtrj(std::vector<cv::Mat>Joints3D, cv::Mat& Img, bool FrontVie
     }
 }
 
-double Viewer::AnglePoint2Plane(cv::Vec3f point3d, cv::Mat plane3d){
-    double beta = 0.0;
-
-    cv::Vec3f planeVec1 = plane3d.at<cv::Vec3f>(1) - plane3d.at<cv::Vec3f>(0);
-    planeVec1 = planeVec1 / (cv::norm(planeVec1) + 1e-23);
-    cv::Vec3f planeVec2 = plane3d.at<cv::Vec3f>(2) - plane3d.at<cv::Vec3f>(0);
-    planeVec2 = planeVec2 / (cv::norm(planeVec2) + 1e-23);
-
-    if (point3d[2] > 0 && plane3d.at<cv::Vec3f>(0)[2] > 0 && plane3d.at<cv::Vec3f>(1)[2] && plane3d.at<cv::Vec3f>(2)[2]){
-        cv::Vec3f planeNormV = planeVec1.cross(planeVec2);
-        beta = AnglePoint2Point(point3d, plane3d.at<cv::Vec3f>(0), plane3d.at<cv::Vec3f>(0) + planeNormV);
-        beta = beta + 3.1415/2;
-    }
-
-    beta = beta*180.0/3.1415;
-    return beta;
-}
-
-double Viewer::AnglePoint2Point(cv::Vec3f point1, cv::Vec3f point_mid, cv::Vec3f point2){
+double Viewer::AngleLink2Link(cv::Vec3f point1, cv::Vec3f point_mid, cv::Vec3f point2){
     double alpha = 0.0;
     if(point1[2]>0 && point_mid[2]>0 && point2[2]>0){
         cv::Vec3f l1 = point1 - point_mid;
@@ -835,11 +832,47 @@ double Viewer::AnglePoint2Point(cv::Vec3f point1, cv::Vec3f point_mid, cv::Vec3f
         else{
             alpha = acos(num/den);
         }
-
-
     }
     alpha = alpha*180.0/3.1415;
     return alpha;
+}
+
+double Viewer::AngleLink2Plane(cv::Vec3f point3d, cv::Mat plane3d){
+    /// Plane 3d cv::Vec3f --> 0: mid point, 1: point 1, 2: point 2
+    /// Link: point - mid point of the plane
+    double beta = 0.0;
+
+    cv::Vec3f planeVec1 = plane3d.at<cv::Vec3f>(1) - plane3d.at<cv::Vec3f>(0);
+    double NormVec1 = cv::norm(planeVec1);
+    cv::Vec3f planeVec2 = plane3d.at<cv::Vec3f>(2) - plane3d.at<cv::Vec3f>(0);
+    double NormVec2 = cv::norm(planeVec2);
+    planeVec1 = planeVec1 / (NormVec1 + 1e-23);
+    planeVec2 = planeVec2 / (NormVec2 + 1e-23);
+
+    cv::Vec3f planeNormV = planeVec1.cross(planeVec2);
+    beta = AngleLink2Link(point3d, plane3d.at<cv::Vec3f>(0), plane3d.at<cv::Vec3f>(0) + planeNormV);
+    beta = beta*180.0/3.1415;
+    return beta;
+}
+
+double Viewer::AnglePlane2Plane(cv::Mat plane1, cv::Mat plane2){
+    double theta = 0.0;
+    cv::Vec3f plane1_Vec1 = plane1.at<cv::Vec3f>(1) - plane1.at<cv::Vec3f>(0);
+    plane1_Vec1 = plane1_Vec1 / (cv::norm(plane1_Vec1) + 1e-23);
+    cv::Vec3f plane1_Vec2 = plane1.at<cv::Vec3f>(2) - plane1.at<cv::Vec3f>(0);
+    plane1_Vec2 = plane1_Vec2 / (cv::norm(plane1_Vec2) + 1e-23);
+    cv::Vec3f plane2_Vec1 = plane1.at<cv::Vec3f>(1) - plane1.at<cv::Vec3f>(0);
+    plane2_Vec1 = plane2_Vec1 / (cv::norm(plane2_Vec1) + 1e-23);
+    cv::Vec3f plane2_Vec2 = plane1.at<cv::Vec3f>(2) - plane1.at<cv::Vec3f>(0);
+    plane2_Vec2 = plane2_Vec2 / (cv::norm(plane2_Vec2) + 1e-23);
+
+    cv::Vec3f NormV1 = plane1_Vec1.cross(plane1_Vec2);
+    cv::Vec3f NormV2 = plane2_Vec1.cross(plane2_Vec2);
+    cv::Vec3f Mid; Mid[0] = 0.0; Mid[1]=0.0; Mid[2]=0.0;
+
+    theta = AngleLink2Link(NormV1, Mid, NormV2);
+    theta = theta*180.0/3.1415;
+    return theta;
 }
 
 cv::Mat Viewer::DrawSkel2DView(cv::Mat Joints3D, cv::Size ImgSize, bool FrontViewFlag){
@@ -963,6 +996,124 @@ double Viewer::CalcLinkLength(cv::Vec3f point1, cv::Vec3f point2){
     L = sqrt(squareSum);
 
     return L;
+}
+
+void Viewer::CalcHumanJointAngles(cv::Mat Joints3D, struct HumanJointAngles *mJointAngles, pangolin::OpenGlMatrix &Twc){
+    cv::Mat SkelCam = Joints3D.clone();
+    cv::Mat SkelWrd(SkelCam.rows, SkelCam.cols, CV_32FC3);
+    // Show angles
+    /// Knee angles and ankle angles are angles between two links
+    // Right knee angle
+    if (SkelCam.at<cv::Vec3f>(HIP_R)[2] > 0 &&
+            SkelCam.at<cv::Vec3f>(KNEE_R)[2] > 0 &&
+            SkelCam.at<cv::Vec3f>(ANKLE_R)[2] > 0) {
+        mJointAngles->RKnee = AngleLink2Link(SkelCam.at<cv::Vec3f>(HIP_R),SkelCam.at<cv::Vec3f>(KNEE_R),SkelCam.at<cv::Vec3f>(ANKLE_R));
+        if (mJointAngles->RKnee < 90)
+            mJointAngles->RKnee = 180 - mJointAngles->RKnee;
+    }
+    // Left knee angle
+    if (SkelCam.at<cv::Vec3f>(HIP_L)[2] > 0 &&
+            SkelCam.at<cv::Vec3f>(KNEE_L)[2] > 0 &&
+            SkelCam.at<cv::Vec3f>(ANKLE_L)[2] > 0) {
+        mJointAngles->LKnee = AngleLink2Link(SkelCam.at<cv::Vec3f>(HIP_L),SkelCam.at<cv::Vec3f>(KNEE_L),SkelCam.at<cv::Vec3f>(ANKLE_L));
+        if (mJointAngles->LKnee < 90)
+            mJointAngles->LKnee = 180 - mJointAngles->LKnee;
+    }
+    // Right ankle angle
+    if (SkelCam.at<cv::Vec3f>(TOE_IN_R)[2] > 0 && SkelCam.at<cv::Vec3f>(TOE_OUT_R)[2] > 0 &&
+            SkelCam.at<cv::Vec3f>(KNEE_R)[2] > 0 && SkelCam.at<cv::Vec3f>(ANKLE_R)[2] > 0){
+        cv::Vec3f FootR_mid = (SkelCam.at<cv::Vec3f>(TOE_IN_R) + SkelCam.at<cv::Vec3f>(TOE_OUT_R));
+        mJointAngles->RAnkle = AngleLink2Link(SkelCam.at<cv::Vec3f>(KNEE_R),SkelCam.at<cv::Vec3f>(ANKLE_R),FootR_mid*0.5);
+    }
+    // Left ankle angle
+    if (SkelCam.at<cv::Vec3f>(TOE_IN_L)[2] > 0 && SkelCam.at<cv::Vec3f>(TOE_OUT_L)[2] > 0 &&
+            SkelCam.at<cv::Vec3f>(KNEE_L)[2] > 0 && SkelCam.at<cv::Vec3f>(ANKLE_L)[2] > 0){
+        cv::Vec3f FootL_mid = (SkelCam.at<cv::Vec3f>(TOE_IN_L) + SkelCam.at<cv::Vec3f>(TOE_OUT_L));
+        mJointAngles->LAnkle = AngleLink2Link(SkelCam.at<cv::Vec3f>(KNEE_L),SkelCam.at<cv::Vec3f>(ANKLE_L),FootL_mid*0.5);
+    }
+    /** Thigh, shank, and foot angles are angle between link and floor normal plane, where the floor normal plane is set as [0 1 0] in {W}.
+     * That means the camera pose is parallel to the floor ground in the first frame
+     * Next, we need to project the Joints in Camera Space into the World coordinates */
+     for (int i = 0; i < Joints3D.cols; i++){
+         SkelWrd.at<cv::Vec3f>(i)[0] = Twc.m[12] + Twc.m[0] * SkelCam.at<cv::Vec3f>(i)[0]
+                                     + Twc.m[4] * SkelCam.at<cv::Vec3f>(i)[1]
+                                     + Twc.m[8] * SkelCam.at<cv::Vec3f>(i)[2];
+         SkelWrd.at<cv::Vec3f>(i)[1] = Twc.m[13] + Twc.m[1] * SkelCam.at<cv::Vec3f>(i)[0]
+                                     + Twc.m[5] * SkelCam.at<cv::Vec3f>(i)[1]
+                                     + Twc.m[9] * SkelCam.at<cv::Vec3f>(i)[2];
+         SkelWrd.at<cv::Vec3f>(i)[2] = Twc.m[14] + Twc.m[2] * SkelCam.at<cv::Vec3f>(i)[0]
+                                     + Twc.m[6] * SkelCam.at<cv::Vec3f>(i)[1]
+                                     + Twc.m[10] * SkelCam.at<cv::Vec3f>(i)[2];
+     }
+     cv::Vec3f FloorNorm; FloorNorm[0]=0.0; FloorNorm[1]=-1.0; FloorNorm[2]=0.0;
+    // Right thigh angle
+    if (SkelCam.at<cv::Vec3f>(HIP_R)[2] > 0 &&
+        SkelCam.at<cv::Vec3f>(KNEE_R)[2] > 0) {
+        mJointAngles->RThigh = AngleLink2Link(SkelWrd.at<cv::Vec3f>(KNEE_R),SkelWrd.at<cv::Vec3f>(HIP_R),SkelWrd.at<cv::Vec3f>(HIP_R)+FloorNorm);
+        if (mJointAngles->RThigh < 90)
+            mJointAngles->RThigh = 180 - mJointAngles->RThigh;
+    }
+    // Left thigh angle
+    if (SkelCam.at<cv::Vec3f>(HIP_L)[2] > 0 &&
+        SkelCam.at<cv::Vec3f>(KNEE_L)[2] > 0) {
+        mJointAngles->LThigh = AngleLink2Link(SkelWrd.at<cv::Vec3f>(KNEE_L),SkelWrd.at<cv::Vec3f>(HIP_L),SkelWrd.at<cv::Vec3f>(HIP_L)+FloorNorm);
+        if (mJointAngles->LThigh < 90)
+            mJointAngles->LThigh = 180 - mJointAngles->LThigh;
+    }
+    // Right shank angle
+    if (SkelCam.at<cv::Vec3f>(KNEE_R)[2] > 0 &&
+        SkelCam.at<cv::Vec3f>(ANKLE_R)[2] > 0) {
+        mJointAngles->RShank = AngleLink2Link(SkelWrd.at<cv::Vec3f>(ANKLE_R),SkelWrd.at<cv::Vec3f>(KNEE_R),SkelWrd.at<cv::Vec3f>(KNEE_R)+FloorNorm);
+        if (mJointAngles->RShank < 90)
+            mJointAngles->RShank = 180 - mJointAngles->RShank;
+    }
+    // Left shank angle
+    if (SkelCam.at<cv::Vec3f>(KNEE_L)[2] > 0 &&
+        SkelCam.at<cv::Vec3f>(ANKLE_L)[2] > 0) {
+        mJointAngles->LShank = AngleLink2Link(SkelWrd.at<cv::Vec3f>(ANKLE_L),SkelWrd.at<cv::Vec3f>(KNEE_L),SkelWrd.at<cv::Vec3f>(KNEE_L)+FloorNorm);
+        if (mJointAngles->LShank < 90)
+            mJointAngles->LShank = 180 - mJointAngles->LShank;
+    }
+    // Right foot angle
+    if (SkelCam.at<cv::Vec3f>(ANKLE_R)[2] > 0 &&
+        SkelCam.at<cv::Vec3f>(TOE_IN_R)[2] > 0 &&
+        SkelCam.at<cv::Vec3f>(TOE_OUT_R)[2] > 0) {
+        cv::Vec3f FootMid = SkelWrd.at<cv::Vec3f>(TOE_IN_R) + SkelWrd.at<cv::Vec3f>(TOE_OUT_R);
+        mJointAngles->RFoot = AngleLink2Link(FootMid,SkelWrd.at<cv::Vec3f>(ANKLE_R),SkelWrd.at<cv::Vec3f>(ANKLE_R)+FloorNorm);
+    }
+    // Left foot angle
+    if (SkelCam.at<cv::Vec3f>(ANKLE_L)[2] > 0 &&
+        SkelCam.at<cv::Vec3f>(TOE_IN_L)[2] > 0 &&
+        SkelCam.at<cv::Vec3f>(TOE_OUT_L)[2] > 0) {
+        cv::Vec3f FootMid = SkelWrd.at<cv::Vec3f>(TOE_IN_L) + SkelWrd.at<cv::Vec3f>(TOE_OUT_L);
+        mJointAngles->LFoot = AngleLink2Link(FootMid,SkelWrd.at<cv::Vec3f>(ANKLE_L),SkelWrd.at<cv::Vec3f>(ANKLE_L)+FloorNorm);
+    }
+    /** Foot progression angle, the angle between forward path and foot link in the floor plane */
+    cv::Mat HBCoord = CalcHumanBodyCoord(SkelWrd.at<cv::Vec3f>(HIP_R), SkelWrd.at<cv::Vec3f>(HIP_C), SkelWrd.at<cv::Vec3f>(HIP_L));
+    cv::Vec3f ForwardDirect;
+    ForwardDirect[0] = HBCoord.at<float>(0,0);
+    ForwardDirect[1] = 0.0;
+    ForwardDirect[2] = HBCoord.at<float>(2,0);
+    // Right FTP
+    if (SkelCam.at<cv::Vec3f>(ANKLE_R)[2] > 0 &&
+        SkelCam.at<cv::Vec3f>(TOE_IN_R)[2] > 0 &&
+        SkelCam.at<cv::Vec3f>(TOE_OUT_R)[2] > 0) {
+        cv::Vec3f FootMid = SkelWrd.at<cv::Vec3f>(TOE_OUT_R); FootMid[1] = 0.0;
+        cv::Vec3f AnkleR = SkelCam.at<cv::Vec3f>(ANKLE_R); AnkleR[1] = 0.0;
+        mJointAngles->RFTP = AngleLink2Link(FootMid,AnkleR,AnkleR+ForwardDirect);
+        if (mJointAngles->RFTP > 90)
+            mJointAngles->RFTP = 180 - mJointAngles->RFTP ;
+    }
+    // Left FTP
+    if (SkelCam.at<cv::Vec3f>(ANKLE_L)[2] > 0 &&
+        SkelCam.at<cv::Vec3f>(TOE_IN_L)[2] > 0 &&
+        SkelCam.at<cv::Vec3f>(TOE_OUT_L)[2] > 0) {
+        cv::Vec3f FootMid = SkelWrd.at<cv::Vec3f>(TOE_OUT_L); FootMid[1] = 0.0;
+        cv::Vec3f AnkleL = SkelCam.at<cv::Vec3f>(ANKLE_L); AnkleL[1] = 0.0;
+        mJointAngles->LFTP = 180 - AngleLink2Link(FootMid,AnkleL,AnkleL+ForwardDirect);
+        if (mJointAngles->LFTP > 90)
+            mJointAngles->LFTP = 180 - mJointAngles->LFTP ;
+    }
 }
 
 void Viewer::RequestFinish(){

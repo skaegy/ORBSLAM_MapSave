@@ -157,7 +157,7 @@ System::System(const string &strVocFile, const string &strSettingsFile,
             (*it)->ComputeBoW();
             mpKeyFrameDatabase->add(*it);
             //TODO: Time cost is high
-            //(*it)->SetMapPoints(mpMap->GetAllMapPoints());
+            (*it)->SetMapPoints(mpMap->GetAllMapPoints());
             (*it)->SetSpanningTree(vpKFs);
             (*it)->SetGridParams(vpKFs);
             // Reconstruct map points Observation

@@ -30,7 +30,7 @@ ReuseMap: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/Monocular/Ma
 #Map_RGB_Huxley307
 # Load Image Path (While using Load_Image program)
 
-LoadImagePath: /media/skaegy/Seagate Backup Plus Drive/Data/RGBD_skeleton/20180911/Yao_stay_normal1
+LoadImagePath: /media/skaegy/Seagate Backup Plus Drive/Data/RGBD_skeleton/20180911/Yao_walk_normal
 
 # Whether detect human pose (0 for no, 1 for yes)
 

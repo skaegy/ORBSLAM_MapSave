@@ -63,6 +63,19 @@ public:
 
     void Release();
 
+	struct HumanJointAngles{
+		double LThigh, RThigh, LShank, RShank;
+		double LAnkle, RAnkle, LKnee, RKnee;
+		double LFoot, RFoot, LFTP, RFTP;
+	}mJointAngles;
+
+	enum{
+		HEAD = 0, SHOULDER_C = 1, SHOULDER_R = 2, SHOULDER_L = 5,
+		ELBOW_R = 3, HAND_R = 4, ELBOW_L = 6, HAND_L = 7,
+		HIP_C = 8, HIP_R = 9, HIP_L = 12,
+		KNEE_R = 10, ANKLE_R = 11, TOE_IN_R = 22, TOE_OUT_R = 23, HEEL_R = 24,
+		KNEE_L = 13, ANKLE_L = 14, TOE_IN_L = 19, TOE_OUT_L = 20, HEEL_L = 21
+	};
 private:
     void Draw3DJoints(cv::Mat Joints3D);
 
@@ -72,9 +85,11 @@ private:
 
     void Draw2DCamLoc(pangolin::OpenGlMatrix &Twc);
 
-    double AnglePoint2Plane(cv::Vec3f point3d, cv::Mat plane3d);
+    double AngleLink2Plane(cv::Vec3f point3d, cv::Mat plane3d);
 
-    double AnglePoint2Point(cv::Vec3f point1, cv::Vec3f point_mid, cv::Vec3f point2);
+    double AnglePlane2Plane(cv::Mat plane1, cv::Mat plane2);
+
+    double AngleLink2Link(cv::Vec3f point1, cv::Vec3f point_mid, cv::Vec3f point2);
 
     cv::Mat DrawSkel2DView(cv::Mat Joints3D, cv::Size ImgSize, bool FrontViewFlag);
 
@@ -83,6 +98,8 @@ private:
 	void Draw2Dtrj(std::vector<cv::Mat> Joints3D, cv::Mat& Img, bool FrontViewFlag, int N_history);
 
     cv::Mat CalcHumanBodyCoord(cv::Vec3f HIP_R, cv::Vec3f HIP_C, cv::Vec3f HIP_L);
+
+    void CalcHumanJointAngles(cv::Mat Joints3D, struct HumanJointAngles *mJointAngles, pangolin::OpenGlMatrix &Twc);
 
     double CalcLinkLength(cv::Vec3f point1, cv::Vec3f point2);
 
