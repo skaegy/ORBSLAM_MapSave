@@ -28,7 +28,8 @@ endif()
 
 LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
 
-set(OpenCV_DIR /opt/ros/kinetic/share/OpenCV-3.3.1-dev) # LINK TO OPENCV IN ROS
+#set(OpenCV_DIR /opt/ros/kinetic/share/OpenCV-3.3.1-dev) # LINK TO OPENCV IN ROS
+set(OpenCV_DIR /home/skaegy/Thirdparty/opencv341/opencv/build) # LINK TO OPENCV IN ROS
 find_package(OpenCV REQUIRED)
 find_package(OpenPose REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -78,7 +79,8 @@ src/Sim3Solver.cc
 src/Initializer.cc
 src/Viewer.cc
 src/ArucoDetect.cpp
-src/DetectHumanPose.cpp)
+src/DetectHumanPose.cpp
+src/UDP2robot.cpp)
 
 target_link_libraries(${PROJECT_NAME}
 ${OpenCV_LIBS}

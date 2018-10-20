@@ -32,7 +32,7 @@ Camera.k3: 0.000000
 
 Camera.width: 640
 Camera.height: 480
-Camera.Z: 0.7
+Camera.Z: 0.6
 
 # Camera frames per second 
 Camera.fps: 30
@@ -54,7 +54,7 @@ DepthMapFactor: 1000.0
 #--------------------------------------------------------------------------------------------
 
 # ORB Extractor: Number of features per image
-ORBextractor.nFeatures: 1000
+ORBextractor.nFeatures: 1500
 
 # ORB Extractor: Scale factor between levels in the scale pyramid 	
 ORBextractor.scaleFactor: 1.5
@@ -88,6 +88,24 @@ Viewer.ViewpointF: 500
 Viewer.TrjHistory: 10
 Viewer.WindowSizeX: 1080.0
 Viewer.WindowSizeY: 1920.0
+
+#--------------------------------------------------------------------------------------------
+# UDP Parameters
+#--------------------------------------------------------------------------------------------
+Send_inverval: 100    # millisecond
+Receiver_interval: 200 # millisecond
+Buf_size: 128
+Port_in: 8008
+Port_out: 8888
+IP_client: "146.169.195.98"
+timeout_max: 10
+# 0 - camera is put in the forward direction of the robot
+# 1 - camera is put in the backward direction of the robot
+# 2 - camera is xxx
+Robot_mode: 0
+AngleThres: 10.0 # degeree
+DistThresMin: 1.0 # meter
+DistThresMax: 2.0 # meter
 
 #--------------------------------------------------------------------------------------------
 # ARUCO Parameters

@@ -76,6 +76,10 @@ public:
 		KNEE_R = 10, ANKLE_R = 11, TOE_IN_R = 22, TOE_OUT_R = 23, HEEL_R = 24,
 		KNEE_L = 13, ANKLE_L = 14, TOE_IN_L = 19, TOE_OUT_L = 20, HEEL_L = 21
 	};
+
+	double mDist2HipC, mDist2ImCenter;
+	cv::Vec3f mHIP_C;
+
 private:
     void Draw3DJoints(cv::Mat Joints3D);
 

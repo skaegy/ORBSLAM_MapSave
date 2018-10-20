@@ -95,7 +95,12 @@ System::System(const string &strVocFile, const string &strSettingsFile,
     "ORB-SLAM2 Copyright (C) 2014-2016 Raul Mur-Artal, University of Zaragoza." << endl <<
     "This program comes with ABSOLUTELY NO WARRANTY;" << endl  <<
     "This is free software, and you are welcome to redistribute it" << endl <<
-    "under certain conditions. See LICENSE.txt." << endl << endl;
+    "under certain conditions." << endl << endl;
+
+    cout << "OPENPOSE Copyright (C): Multi-person keypoint detection" << endl <<
+            " ---- Software licence agreement ----" << endl <<
+            " Academic or non-profit organization noncommercial research use only." << endl <<
+            " By using or downlowding the software, you are agree to the terms of this licence agreement." << endl << endl;
 
     cout << "Input sensor was set to: ";
 
@@ -223,6 +228,10 @@ System::System(const string &strVocFile, const string &strSettingsFile,
     if(bUseViewer)
         mptViewer = new thread(&Viewer::Run, mpViewer);
 
+    // 9-- Initialize the UDP thread and launch
+    mpUDPsocket = new udpSocket(strSettingsFile);
+    //if (bHumanPose)
+    mptUDPsocket = new thread(&ORB_SLAM2::udpSocket::RunServer, mpUDPsocket);
 
     // 10. Set pointers between threads
     // Link threads (Tracker --> Local mapper & Loop Closer & Tracker)
@@ -241,6 +250,7 @@ System::System(const string &strVocFile, const string &strSettingsFile,
     // Link threads (ArucoDetector --> Viewer)
     mpArucoDetector->SetViewer(mpViewer);
     mpOpDetector->SetViewer(mpViewer);
+    mpUDPsocket->SetViewer(mpViewer);
 }
 
 cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp)

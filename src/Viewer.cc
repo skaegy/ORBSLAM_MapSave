@@ -148,7 +148,7 @@ void Viewer::Run(){
             .SetLock(pangolin::LockLeft, pangolin::LockBottom);
 
     // Add Global coordinate system
-
+    /*
     pangolin::Renderable tree;
     tree.Add( std::make_shared<pangolin::Axis>() );
     d_cam.SetDrawFunction([&](pangolin::View& view){
@@ -161,7 +161,7 @@ void Viewer::Run(){
         view.Activate(s_cam_fix);
         tree_fix.Render();
     });
-
+    */
     Twc.SetIdentity();
 
     /// OPENCV IMSHOW
@@ -262,6 +262,17 @@ void Viewer::Run(){
         showPosY=Twc.m[13];
         showPosZ=Twc.m[14];
 
+        ///--------- display ORB-SLAM  ---------//
+        cv::Mat im = mpFrameDrawer->DrawFrame();
+        // display ORB-SLAM in opencv
+        //cv::imshow("ORB-SLAM2: Current Frame",im);
+        // display the image in opengl
+        pangolin::GlTexture imageTextureORB(im.cols,im.rows,GL_RGB,false,0,GL_BGR,GL_UNSIGNED_BYTE);
+        imageTextureORB.Upload(im.data,GL_BGR,GL_UNSIGNED_BYTE);
+        d_img_orb.Activate();
+        glColor3f(1.0,1.0,1.0);
+        imageTextureORB.RenderToViewportFlipY();
+
         ///--------- display ARUCO marker  ---------//
         /*
         if (mbARUCODetect){
@@ -335,11 +346,17 @@ void Viewer::Run(){
                 Draw2DHumanLoc(Joints3Dekf);
 
                 // Show distance to hip center
-                cv::Vec3f hip_c = Joints3Dekf.at<cv::Vec3f>(8);
-                if (hip_c[2] > 0){
-                    distHipX = Twc.m[12] + hip_c[0]; distHipY = Twc.m[13] + hip_c[1]; distHipZ = Twc.m[14] + hip_c[2];
-                }
+                cv::Vec3f hip_c3D = Joints3Dekf.at<cv::Vec3f>(8);
 
+                /// Use these information for robot following
+                if (hip_c3D[2] > 0){
+                    distHipX = hip_c3D[0]; distHipY = hip_c3D[1]; distHipZ = hip_c3D[2];
+                    mHIP_C = hip_c3D;
+                    //cv::Vec3f hip_c2D = mpOpDetector->mJoints2D.at<cv::Vec3f>(8);
+                    //mDist2HipC = hip_c3D[2];
+                    //mDist2ImCenter = hip_c2D[0] - im.cols/2.0;
+                    //mDist2ImCenter = hip_c3D[0];
+                }
 
                 // Show angles
                 CalcHumanJointAngles(Joints3Dekf, &mJointAngles, Twc);
@@ -349,31 +366,6 @@ void Viewer::Run(){
                 RKnee  = mJointAngles.RKnee;   LKnee  = mJointAngles.LKnee;
                 RFoot  = mJointAngles.RFoot;   LFoot  = mJointAngles.LFoot;
                 Rftp   = mJointAngles.RFTP;    Lftp   = mJointAngles.LFTP;
-                /*
-                // Right shank angle
-                if (Joints3Dekf.at<cv::Vec3f>(9)[2] > 0 &&
-                    Joints3Dekf.at<cv::Vec3f>(10)[2] > 0 &&
-                    Joints3Dekf.at<cv::Vec3f>(11)[2] > 0) {
-                    Rshank = AngleLink2Link(Joints3Dekf.at<cv::Vec3f>(9),Joints3Dekf.at<cv::Vec3f>(10),Joints3Dekf.at<cv::Vec3f>(11));
-                }
-                // Left shank angle
-                if (Joints3Dekf.at<cv::Vec3f>(12)[2] > 0 &&Joints3Dekf.at<cv::Vec3f>(13)[2] > 0 &&Joints3Dekf.at<cv::Vec3f>(14)[2] > 0) {
-                    Lshank = AngleLink2Link(Joints3Dekf.at<cv::Vec3f>(12),Joints3Dekf.at<cv::Vec3f>(13),Joints3Dekf.at<cv::Vec3f>(14));
-                }
-                // Right ankle angle
-                if (Joints3Dekf.at<cv::Vec3f>(10)[2] > 0 &&Joints3Dekf.at<cv::Vec3f>(11)[2] > 0 &&
-                    Joints3Dekf.at<cv::Vec3f>(22)[2] > 0 &&Joints3Dekf.at<cv::Vec3f>(23)[2] > 0){
-                    cv::Vec3f FootR_mid = (Joints3Dekf.at<cv::Vec3f>(22) + Joints3Dekf.at<cv::Vec3f>(23));
-                    Rankle = AngleLink2Link(Joints3Dekf.at<cv::Vec3f>(10),Joints3Dekf.at<cv::Vec3f>(11),FootR_mid*0.5);
-                }
-
-                // Left ankle angle
-                if (Joints3Dekf.at<cv::Vec3f>(13)[2] > 0 && Joints3Dekf.at<cv::Vec3f>(14)[2] > 0 &&
-                    Joints3Dekf.at<cv::Vec3f>(19)[2] > 0 &&Joints3Dekf.at<cv::Vec3f>(20)[2] > 0){
-                    cv::Vec3f FootL_mid = (Joints3Dekf.at<cv::Vec3f>(19) + Joints3Dekf.at<cv::Vec3f>(20));
-                    Lankle = AngleLink2Link(Joints3Dekf.at<cv::Vec3f>(13),Joints3Dekf.at<cv::Vec3f>(14),FootL_mid*0.5);
-                }
-                 */
             }
         }
 
@@ -393,16 +385,7 @@ void Viewer::Run(){
             }
         }
 
-        ///--------- display ORB-SLAM  ---------//
-        cv::Mat im = mpFrameDrawer->DrawFrame();
-        // display ORB-SLAM in opencv
-        //cv::imshow("ORB-SLAM2: Current Frame",im);
-        // display the image in opengl
-        pangolin::GlTexture imageTextureORB(im.cols,im.rows,GL_RGB,false,0,GL_BGR,GL_UNSIGNED_BYTE);
-        imageTextureORB.Upload(im.data,GL_BGR,GL_UNSIGNED_BYTE);
-        d_img_orb.Activate();
-        glColor3f(1.0,1.0,1.0);
-        imageTextureORB.RenderToViewportFlipY();
+
 
         ///--------- display skeleton of lower limb from front-view & side-view ---------//
         if(mbHumanPose) {

@@ -10,7 +10,7 @@
 # "rtsp://146.169.171.163:8554/test"
 # /dev/video3
 
-Video_source: "rtsp://146.169.169.129:8554/test"
+Video_source: /dev/video2
 
 # the Orb Vocabulary File Path. Either .bin File or .txt File is Ok.
 
@@ -18,11 +18,11 @@ Orb_Vocabulary: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Vocabulary/ORBv
 
 # the Camera Setting File Path. 
 
-Cam_Setting: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/ORB_RGBD640x480.yaml
+Cam_Setting: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/ORB_RGB640x480.yaml
 
 # Whether Run the ORB-SLAM2 System Using the Exsiting Map File (0 for no , 1 for yes).
 
-is_ReuseMap: 1
+is_ReuseMap: 0
 
 # the Exsiting Map File Path (if the above item is 0, this is unnessesary)
 
@@ -30,11 +30,11 @@ ReuseMap: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/Monocular/Ma
 #Map_RGB_Huxley307
 # Load Image Path (While using Load_Image program)
 
-LoadImagePath: /media/skaegy/Seagate Backup Plus Drive/Data/RGBD_skeleton/20180911/Yao_walk_normal
+LoadImagePath: /media/skaegy/Seagate Backup Plus Drive/Data/RGBD_skeleton/20180920/Gait1
 
 # Whether detect human pose (0 for no, 1 for yes)
 
-is_DetectHuman: 1
+is_DetectHuman: 0
 
 # the Openpose parameters File Path
 

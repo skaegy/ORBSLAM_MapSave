@@ -44,6 +44,7 @@
 #include "Viewer.h"
 #include "ArucoDetect.h"
 #include "DetectHumanPose.h"
+#include "UDP2robot.h"
 
 namespace ORB_SLAM2
 {
@@ -56,6 +57,7 @@ class LocalMapping;
 class LoopClosing;
 class ArucoDetector;
 class OpDetector;
+class udpSocket;
 
 class System
 {
@@ -140,6 +142,7 @@ public:
     // between the camera and the detected marker.
     ArucoDetector* mpArucoDetector;
     OpDetector* mpOpDetector;
+    udpSocket* mpUDPsocket;
 private:
 
     // ORB vocabulary used for place recognition and feature matching.
@@ -183,6 +186,7 @@ private:
     std::thread* mptViewer;       // Pointer of Viewer thread
     std::thread* mptArucoDetector;// Pointer of ARUCO marker detect thread
     std::thread* mptOpDetector;   // Pointer of Openpose detect thread
+    std::thread* mptUDPsocket;    // Pointer of UDP for robot control thread
 
     // Thread Reset flag
     std::mutex mMutexReset;

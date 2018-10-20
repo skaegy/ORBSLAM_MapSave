@@ -1,0 +1,8 @@
+//
+// Created by root on 25/09/18.
+//
+
+#ifndef ORB_SLAM2_SKELETONPROCESS_H
+#define ORB_SLAM2_SKELETONPROCESS_H
+
+#endif //ORB_SLAM2_SKELETONPROCESS_H
