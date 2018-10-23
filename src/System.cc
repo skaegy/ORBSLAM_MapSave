@@ -212,6 +212,7 @@ System::System(const string &strVocFile, const string &strSettingsFile,
     mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, mpLoopCloser);
 
     // 0. Initialize the openpose detector thread and launch
+    mbHumanPose = bHumanPose;
     mpOpDetector = new OpDetector(strOpenposeSettingsFile, bHumanPose, mSensor);
     if (bHumanPose)
         mptOpDetector = new thread(&ORB_SLAM2::OpDetector::Run, mpOpDetector);
@@ -230,14 +231,15 @@ System::System(const string &strVocFile, const string &strSettingsFile,
 
     // 9-- Initialize the UDP thread and launch
     mpUDPsocket = new udpSocket(strSettingsFile);
-    //if (bHumanPose)
-    mptUDPsocket = new thread(&ORB_SLAM2::udpSocket::RunServer, mpUDPsocket);
+    if (bHumanPose)
+        mptUDPsocket = new thread(&ORB_SLAM2::udpSocket::RunServer, mpUDPsocket);
 
     // 10. Set pointers between threads
     // Link threads (Tracker --> Local mapper & Loop Closer & Tracker)
     mpTracker->SetLocalMapper(mpLocalMapper);
     mpTracker->SetLoopClosing(mpLoopCloser);
     mpTracker->SetViewer(mpViewer);
+    mpTracker->SetOpDetector(mpOpDetector);
 
     // Link threads (Local Mapper --> Tracker & Loop Closer)
     mpLocalMapper->SetTracker(mpTracker);
@@ -449,7 +451,6 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
      * Generate map points by minimizing the reprojecting error of BA --> Map optimization & Pose optimization & 3D map points
      * Normalization the pose/position of Frame 2 --> Translational vector and coordinates of the map points
      * Show update
-     * TODO: Normalization using the ARUCO marker in the first set of frames
      * 2) t> 2
      */
 

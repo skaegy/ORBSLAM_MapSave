@@ -260,6 +260,12 @@ void Tracking::SetViewer(Viewer *pViewer)
     mpViewer=pViewer;
 }
 
+void Tracking::SetOpDetector(OpDetector* pOpDetector)
+{
+    mpOpDetector=pOpDetector;
+}
+
+
 /**
   * GrabImageStereo
   * Input: [RGB、BGR、RGBA、GRAY]
@@ -363,7 +369,22 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const d
 
     // 2) Create current frame
     // Key point, key points matching, depth, coordinates of matching points, divide of key points
-    mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+    /// Use mask for extracting ORB featuers
+    if (mpSystem->mbHumanPose){
+
+        if (mpOpDetector->mlHumanMask.size()>0){
+            mImMask = mpOpDetector->mlHumanMask.front();
+        }
+        else{
+            mImMask = cv::Mat::ones(imDepth.size(),CV_8UC1);
+        }
+        mCurrentFrame = Frame(mImGray,imDepth,mImMask, timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+    }
+    else{
+        mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+    }
+
+    //mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
 
     // 3) Tracking
     Track();
@@ -403,10 +424,22 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
 
     // 2）Package the current frame as a Frame --> mCurrentFrame object
     // First frame: mpIniORBextractor, Other frames: mpORBextractorLeft
-    if(mState==NOT_INITIALIZED || mState==NO_IMAGES_YET)
-        mCurrentFrame = Frame(mImGray,timestamp,mpIniORBextractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
-    else
-        mCurrentFrame = Frame(mImGray,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+    if (mpSystem->mbHumanPose){
+        if (mpOpDetector->mlHumanMask.size()>0)
+            mImMask = mpOpDetector->mlHumanMask.front();
+        else
+            mImMask = cv::Mat::ones(mImGray.size(),CV_8UC1);
+        if(mState==NOT_INITIALIZED || mState==NO_IMAGES_YET)
+            mCurrentFrame = Frame(mImGray,mImMask,timestamp,mpIniORBextractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+        else
+            mCurrentFrame = Frame(mImGray,mImMask,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+    }
+    else{
+        if(mState==NOT_INITIALIZED || mState==NO_IMAGES_YET)
+            mCurrentFrame = Frame(mImGray,timestamp,mpIniORBextractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+        else
+            mCurrentFrame = Frame(mImGray,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+    }
 
     // 3) Tracking
     Track();

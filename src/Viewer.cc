@@ -263,6 +263,15 @@ void Viewer::Run(){
         showPosZ=Twc.m[14];
 
         ///--------- display ORB-SLAM  ---------//
+        /*
+        if (mpOpDetector->mlHumanMask.size() > 0){
+            mHumanMask = mpOpDetector->mlHumanMask.front();
+        }
+        else{
+            mHumanMask = cv::Mat::ones(mImageHeight, mImageWidth, CV_8UC1);
+        }
+        cv::Mat im = mHumanMask.clone();
+        */
         cv::Mat im = mpFrameDrawer->DrawFrame();
         // display ORB-SLAM in opencv
         //cv::imshow("ORB-SLAM2: Current Frame",im);
@@ -352,10 +361,6 @@ void Viewer::Run(){
                 if (hip_c3D[2] > 0){
                     distHipX = hip_c3D[0]; distHipY = hip_c3D[1]; distHipZ = hip_c3D[2];
                     mHIP_C = hip_c3D;
-                    //cv::Vec3f hip_c2D = mpOpDetector->mJoints2D.at<cv::Vec3f>(8);
-                    //mDist2HipC = hip_c3D[2];
-                    //mDist2ImCenter = hip_c2D[0] - im.cols/2.0;
-                    //mDist2ImCenter = hip_c3D[0];
                 }
 
                 // Show angles

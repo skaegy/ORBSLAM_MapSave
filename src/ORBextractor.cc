@@ -1045,8 +1045,12 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
     if(_image.empty())
         return;
 
-    Mat image = _image.getMat();
-    assert(image.type() == CV_8UC1 );
+    Mat imageIn = _image.getMat();
+    Mat Mask = _mask.getMat();
+
+    assert(imageIn.type() == CV_8UC1 );
+    Mat image;
+    imageIn.copyTo(image, Mask);
 
     // Pre-compute the scale pyramid
     ComputePyramid(image);

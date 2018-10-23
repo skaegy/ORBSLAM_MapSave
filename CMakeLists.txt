@@ -1,19 +1,20 @@
 cmake_minimum_required(VERSION 3.8)
-project(ORB_SLAM2)
+project(ORB_TRACK)
 
 IF(NOT CMAKE_BUILD_TYPE)
-  SET(CMAKE_BUILD_TYPE Release)
+  SET(CMAKE_BUILD_TYPE Debug)
 ENDIF()
 
 MESSAGE("Build type: " ${CMAKE_BUILD_TYPE})
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wall -O0 -g  -march=native ")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O0 -g -march=native")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -fpic -Wall -g  -O0 -march=native ")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpic -Wall  -g -O0 -march=native")
 
 # Check C++11 or C++0x support
 include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
 CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
+
 if(COMPILER_SUPPORTS_CXX11)
    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
    add_definitions(-DCOMPILEDWITHC11)
@@ -28,8 +29,8 @@ endif()
 
 LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
 
-#set(OpenCV_DIR /opt/ros/kinetic/share/OpenCV-3.3.1-dev) # LINK TO OPENCV IN ROS
-set(OpenCV_DIR /home/skaegy/Thirdparty/opencv341/opencv/build) # LINK TO OPENCV IN ROS
+set(OpenCV_DIR /opt/ros/kinetic/share/OpenCV-3.3.1-dev) # LINK TO OPENCV IN ROS
+#set(OpenCV_DIR /home/skaegy/Thirdparty/opencv341/opencv/build) # LINK TO OPENCV IN ROS
 find_package(OpenCV REQUIRED)
 find_package(OpenPose REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -38,8 +39,6 @@ find_package(Boost  1.54.0  	     # Minimum or EXACT version e.g. 1.36.0
   REQUIRED             					# Fail with error if Boost is not found
   COMPONENTS serialization 				# Boost libraries by their canonical name
   )
-#set(realsense2_INCLUDE_DIRS "C:\\Program Files (x86)\\Intel RealSense SDK 2.0\\lib\\x64")
-#set(DLL_DIR "C:\\Program Files (x86)\\Intel RealSense SDK 2.0\\bin\\x64")
 find_package(realsense2 REQUIRED)
 find_package(OpenPose REQUIRED)
 find_package(OpenMP REQUIRED)
@@ -78,9 +77,10 @@ src/KeyFrameDatabase.cc
 src/Sim3Solver.cc
 src/Initializer.cc
 src/Viewer.cc
-src/ArucoDetect.cpp
 src/DetectHumanPose.cpp
-src/UDP2robot.cpp)
+src/ArucoDetect.cpp
+src/UDP2robot.cpp
+)
 
 target_link_libraries(${PROJECT_NAME}
 ${OpenCV_LIBS}
@@ -96,7 +96,6 @@ ${realsense2_LIBRARIES}
 # Build examples
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Monocular)
-
 
 # ----- Monocular ----- #
 add_executable(Monocular Examples/Monocular.cc )

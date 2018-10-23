@@ -57,8 +57,17 @@ public:
     // Constructor for Monocular cameras.
     Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
 
+    // Constructor for RGB cameras with Mask.
+    Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imMask, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
+
+    // Constructor for Monocular cameras with Mask.
+    Frame(const cv::Mat &imGray, const double &timeStamp, const cv::Mat &imMask, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
+
     // Extract ORB on the image. 0 for left image and 1 for right image.
     void ExtractORB(int flag, const cv::Mat &im);
+
+    // Extract ORB on the image. 0 for left image and 1 for right image.
+    void ExtractORBMask(int flag, const cv::Mat &im, const cv::Mat &imMask);
 
     // Compute Bag of Words representation.
     void ComputeBoW();
@@ -206,6 +215,7 @@ private:
     cv::Mat mtcw;
     cv::Mat mRwc;
     cv::Mat mOw; //==mtwc
+
 };
 
 }// namespace ORB_SLAM

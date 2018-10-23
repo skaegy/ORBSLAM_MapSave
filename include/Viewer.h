@@ -77,8 +77,9 @@ public:
 		KNEE_L = 13, ANKLE_L = 14, TOE_IN_L = 19, TOE_OUT_L = 20, HEEL_L = 21
 	};
 
-	double mDist2HipC, mDist2ImCenter;
 	cv::Vec3f mHIP_C;
+
+	cv::Mat mHumanMask;
 
 private:
     void Draw3DJoints(cv::Mat Joints3D);

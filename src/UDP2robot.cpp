@@ -48,20 +48,22 @@ void udpSocket::RunServer()
     //int counter = 0;
     socklen_t  addr_len=sizeof(addrServer);
     while(1){
-        cv::Vec3f HIP_C = mpViewer->mHIP_C;
-        int cmd = 0;
-        if (mRobotMode == 0)
-            cmd = GenerateForwardControlCmd(HIP_C, mAngleThres, mDistThresMin, mDistThresMax);
-        else if (mRobotMode == 1)
-            cmd = GenerateBackwardControlCmd(HIP_C, mAngleThres, mDistThresMin, mDistThresMax);
+        if (mpViewer->mHIP_C.rows>0){
+            int cmd = 0;
+            /*
+            //cv::Vec3f HIP_C = mpViewer->mHIP_C;
+            if (mRobotMode == 0)
+                cmd = GenerateForwardControlCmd(HIP_C, mAngleThres, mDistThresMin, mDistThresMax);
+            else if (mRobotMode == 1)
+                cmd = GenerateBackwardControlCmd(HIP_C, mAngleThres, mDistThresMin, mDistThresMax);
+            */
+            //cmd = GenerateRotCmd(HIP_C, mAngleThres);
+            std::string send_str = std::to_string(cmd);
 
-        //cmd = GenerateRotCmd(HIP_C, mAngleThres);
-        std::string send_str = std::to_string(cmd);
-
-        sendto(mSockfdServer, send_str.c_str(), send_str.length(), 0, (sockaddr*)&addrServer, addr_len);
-        //printf("Server: Sended %d\n", ++counter);
-        usleep(mSenderInterval*1e3);
-
+            sendto(mSockfdServer, send_str.c_str(), send_str.length(), 0, (sockaddr*)&addrServer, addr_len);
+            //printf("Server: Sended %d\n", ++counter);
+            usleep(mSenderInterval*1e3);
+        }
         if (mCloseServer)
             break;
     }

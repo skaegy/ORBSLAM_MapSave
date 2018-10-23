@@ -1,23 +1,28 @@
 //
 // Created by skaegy on 16/08/18.
 //
-#ifndef ORB_SLAM2_DETECTHUMANPOSE_H
-#define ORB_SLAM2_DETECTHUMANPOSE_H
+#ifndef DETECTHUMANPOSE_H
+#define DETECTHUMANPOSE_H
+
 
 #include <iostream>
 #include <thread>
 #include <mutex>
 #include <list>
+
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/videoio.hpp>
 #include <opencv2/tracking.hpp>
-#include <openpose/core/headers.hpp>
-#include <openpose/filestream/headers.hpp>
-#include <openpose/gui/headers.hpp>
-#include <openpose/pose/headers.hpp>
-#include <openpose/utilities/headers.hpp>
+
+#include <openpose/headers.hpp>
+
+//#include <openpose/core/headers.hpp>
+//#include <openpose/filestream/headers.hpp>
+//#include <openpose/gui/headers.hpp>
+//#include <openpose/pose/headers.hpp>
+//#include <openpose/utilities/headers.hpp>
 #include "System.h"
 
 
@@ -47,6 +52,15 @@ public:
         int Cnt_heel_L, Cnt_heel_R;
     };
 
+    struct UserDatum : public op::Datum
+    {
+        bool boolThatUserNeedsForSomeReason;
+
+        UserDatum(const bool boolThatUserNeedsForSomeReason_ = false) :
+                boolThatUserNeedsForSomeReason{boolThatUserNeedsForSomeReason_}
+        {}
+    };
+
 public:
     OpDetector(const string &strOpenposeSettingsFile, const bool bHumanPose, const int SensorMode);
 
@@ -68,8 +82,9 @@ public:
 
     void Release();
 
-    list<cv::Mat> mlLoadImage, mlLoadDepth, mlRenderPoseImage;
-    cv::Mat mJoints2D;
+    list<cv::Mat> mlLoadImage, mlLoadDepth, mlRenderPoseImage, mlHumanMask;
+    cv::Mat mJoints2D, mJoints3D, mJoints3D_EKFsmooth;
+    cv::Mat mHumanMask;
     vector<cv::Mat> mvJoints3Draw;
     vector<cv::Mat> mvJoints3DEKF;
     vector<double> mvTimestamp;
@@ -78,7 +93,11 @@ public:
     int mFramecnt = 0;
 
 private:
-    cv::Mat Joints2Dto3D(cv::Mat Joints2D, cv::Mat& imD, double renderThres);
+    cv::Mat Joints2Dto3D(cv::Mat& Joints2D, cv::Mat& imD, double renderThres);
+
+    void Joints2DSeg(cv::Mat& imRGB, cv::Mat& Joints2D, cv::Mat& outputIm);
+
+    void Joints3DSeg(cv::Mat& imD, cv::Mat& Joints2D, cv::Mat& Joints3D, cv::Mat& outputIm);
 
     float GetPointDepth(cv::Vec2f, cv::Mat& imD, int depth_radius);
 
@@ -92,8 +111,11 @@ private:
 
     cv::Mat KFupdate(cv::Mat Joints3D, const int stateNum, const int measureNum);
 
-    //TODO
-    cv::Mat RemoveSkelFlip(cv::Mat skel_curr, cv::Mat skel_last);
+    void InitHumanParams(struct HumanParams *mHumanParams);
+
+    void UpdateHumanParams(cv::Mat Joints3D, struct HumanParams *mHumanParams);
+
+    cv::Mat updateMeasurement(cv::Mat measurementPt, cv::Vec3f  rootPt, double linkConstraint );
 
     float CalcSkelDist(cv::Mat skel_curr, cv::Mat skel_last, int *JointSet, int JointSize);
 
@@ -104,18 +126,21 @@ private:
     void SetFinish();
 
     // Openpose extractor parameters
-    int logging_level, num_gpu_start, scale_number;
-    double scale_gap, render_threshold, alpha_pose;
-    string model_pose, model_folder, net_resolution, output_resolution;
-    double fx, fy, ppx, ppy;
-    double wk, vk, pk;
+    int mOPflag_logging_level, mOPflag_num_gpu, mOPflag_num_gpu_start, mOPflag_scale_number;
+    int mOPflag_part_to_show, mOPflag_number_people_max, mOPflag_op_tracking;
+    double mOPflag_scale_gap, mOPflag_render_threshold, mOPflag_alpha_pose;
+    std::string mOPflag_model_pose, mOPflag_model_folder, mOPflag_net_resolution, mOPflag_output_resolution;
+    // Camera Parameters
+    double mCam_fx, mCam_fy, mCam_ppx, mCam_ppy;
+    // KF Parameters
+    double mKF_wk, mKF_vk, mKF_pk;
+    // Mask Parameters
+    float mZ_max_last = 2.0;
+    // Sensor
     int mSensor;
     list<double> mlLoadTimestamp;
     HumanParams mHumanParams; // struct of human body parameters
 
-    void InitHumanParams(struct HumanParams *mHumanParams);
-    void UpdateHumanParams(cv::Mat Joints3D, struct HumanParams *mHumanParams);
-    cv::Mat updateMeasurement(cv::Mat measurementPt, cv::Vec3f  rootPt, double linkConstraint );
 
     bool mbFinishRequested;
     bool mbFinished = false;
@@ -131,10 +156,14 @@ private:
     cv::KalmanFilter KFs3D[25];
 
 protected:
-    std::mutex mMutexOp;
+    std::mutex mMutexDepthIm;
+    std::mutex mMutexColorIm;
+    std::mutex mMutexOutputIm;
+    std::mutex mMutexMask;
+    std::mutex mMutexJoint;
 
     Viewer* mpViewer;
 };
 
 }
-#endif //ORB_SLAM2_DETECTHUMANPOSE_H
+#endif //DETECTHUMANPOSE_H

@@ -2,15 +2,11 @@
 // Created by root on 25/09/18.
 //
 
-#ifndef ORB_SLAM2_UDP2ROBOT_H
-#define ORB_SLAM2_UDP2ROBOT_H
+#ifndef UDP2ROBOT_H
+#define UDP2ROBOT_H
 
-//
-// Created by skaegy on 31/08/18.
-//
-
-#ifndef RGBDSTREAMING_UDPSOCKETSIMPLE_H
-#define RGBDSTREAMING_UDPSOCKETSIMPLE_H
+//#ifndef RGBDSTREAMING_UDPSOCKETSIMPLE_H
+//#define RGBDSTREAMING_UDPSOCKETSIMPLE_H
 
 #include <sys/select.h>
 #include <unistd.h>
@@ -82,7 +78,7 @@ protected:
 };
 
 }
-#endif //RGBDSTREAMING_UDPSOCKETSIMPLE_H
+//#endif //RGBDSTREAMING_UDPSOCKETSIMPLE_H
 
 
-#endif //ORB_SLAM2_UDP2ROBOT_H
+#endif //UDP2ROBOT_H

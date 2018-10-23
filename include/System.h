@@ -143,6 +143,8 @@ public:
     ArucoDetector* mpArucoDetector;
     OpDetector* mpOpDetector;
     udpSocket* mpUDPsocket;
+
+    bool mbHumanPose;
 private:
 
     // ORB vocabulary used for place recognition and feature matching.

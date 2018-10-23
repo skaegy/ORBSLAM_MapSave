@@ -26,18 +26,19 @@
 #include<opencv2/features2d/features2d.hpp>
 
 
-#include"Viewer.h"
-#include"FrameDrawer.h"
-#include"Map.h"
-#include"LocalMapping.h"
-#include"LoopClosing.h"
-#include"Frame.h"
+#include "Viewer.h"
+#include "FrameDrawer.h"
+#include "Map.h"
+#include "LocalMapping.h"
+#include "LoopClosing.h"
+#include "Frame.h"
 #include "ORBVocabulary.h"
-#include"KeyFrameDatabase.h"
-#include"ORBextractor.h"
+#include "KeyFrameDatabase.h"
+#include "ORBextractor.h"
 #include "Initializer.h"
 #include "MapDrawer.h"
 #include "System.h"
+#include "DetectHumanPose.h"
 
 #include <mutex>
 #include <omp.h>
@@ -67,6 +68,7 @@ public:
     void SetLocalMapper(LocalMapping* pLocalMapper);
     void SetLoopClosing(LoopClosing* pLoopClosing);
     void SetViewer(Viewer* pViewer);
+    void SetOpDetector(OpDetector* pOpDetector);
 
     // Load new settings
     // The focal lenght should be similar or scale prediction will fail when projecting points
@@ -97,6 +99,7 @@ public:
     // Current Frame
     Frame mCurrentFrame;
     cv::Mat mImGray;
+    cv::Mat mImMask;
 
     // Initialization Variables (Monocular)
     std::vector<int> mvIniLastMatches;
@@ -155,6 +158,7 @@ protected:
     //Other Thread Pointers
     LocalMapping* mpLocalMapper;
     LoopClosing* mpLoopClosing;
+    OpDetector* mpOpDetector;
 
     //ORB
     ORBextractor* mpORBextractorLeft, *mpORBextractorRight;

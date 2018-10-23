@@ -16,6 +16,8 @@
 using namespace std;
 using namespace rs2;
 
+mutex mMutexInput;
+
 int main()
 {
     const string &strSettingPath = "../Setting.yaml";
@@ -95,31 +97,36 @@ int main()
     disparity_transform disparity_to_depth(false);
 
     // Main loop
-    cv::Mat imAruco, imOP;
+    cv::Mat imAruco(IMG_WIDTH, IMG_HEIGHT, CV_8UC3);
+    cv::Mat imOP(IMG_WIDTH, IMG_HEIGHT, CV_8UC3);
     bool OpStandBy, ARUCOStandBy;
     list<cv::Mat> processed_color;
     list<cv::Mat> processed_depth;
+    list<double> lTimestamp;
 
     std::thread LoadRealsense([&]() {
         while(1){
+            usleep(1000);
             // Read image from realsense
             auto rs_d415 = pipe.wait_for_frames();
 
             auto aligned_frame = align.process(rs_d415);
             auto depth = aligned_frame.get_depth_frame();
             auto color = aligned_frame.get_color_frame();
+            std::chrono::milliseconds unix_timestamp = std::chrono::duration_cast< std::chrono::milliseconds >
+                    (std::chrono::system_clock::now().time_since_epoch());
+            double unix_timestamp_ms = std::chrono::milliseconds(unix_timestamp).count();
+            mMutexInput.lock();
+            lTimestamp.push_front(unix_timestamp_ms);
+            if (lTimestamp.size() > 2)
+                lTimestamp.pop_back();
+            mMutexInput.unlock();
 
             // Filter
             depth = depth_to_disparity.process(depth);
             depth = spat_filter.process(depth);
             depth = temp_filter.process(depth);
             depth = disparity_to_depth.process(depth);
-
-            // realsense frame to mat
-            cv::Mat imRGB(cv::Size(IMG_WIDTH, IMG_HEIGHT), CV_8UC3, (void *) color.get_data(), cv::Mat::AUTO_STEP);
-            cv::Mat imD(cv::Size(IMG_WIDTH, IMG_HEIGHT), CV_16UC1, (void *) depth.get_data(), cv::Mat::AUTO_STEP);
-            imD.setTo(cv::Scalar(0), imD < 300);
-            imD.setTo(cv::Scalar(0), imD > 4000);
 
             /*
             cv::Mat imD_bilaSmooth, imD_output;
@@ -128,62 +135,72 @@ int main()
             imD_output.convertTo(imD_output, CV_16UC1);
              */
 
+            // realsense frame to mat
+            cv::Mat rsRGB(cv::Size(IMG_WIDTH, IMG_HEIGHT), CV_8UC3, (void *) color.get_data(), cv::Mat::AUTO_STEP);
+            cv::Mat rsD(cv::Size(IMG_WIDTH, IMG_HEIGHT), CV_16UC1, (void *) depth.get_data(), cv::Mat::AUTO_STEP);
+            rsD.setTo(cv::Scalar(0), rsD < 300);
+            rsD.setTo(cv::Scalar(0), rsD > 6000);
 
-            //cv::imwrite("1.png",imD);
-            //cv::imwrite("1.jpg",imRGB);
-            processed_color.push_front(imRGB);
-            processed_depth.push_front(imD);
+            mMutexInput.lock();
+            processed_color.push_front(rsRGB.clone());
+            processed_depth.push_front(rsD.clone());
             if (processed_color.size() > 2)
                 processed_color.pop_back();
             if (processed_depth.size() > 2)
                 processed_depth.pop_back();
+            mMutexInput.unlock();
         }
     });
     LoadRealsense.detach();
 
-
 while(1) {
+
+    usleep(1000);
     if (processed_depth.size() > 0 && processed_color.size() > 0) {
         if (bHumanPose)
             OpStandBy = SLAM.mpOpDetector->OpStandBy;
         if (bArucoDetect)
             ARUCOStandBy = SLAM.mpArucoDetector->ArucoStandBy;
 
-        std::chrono::milliseconds unix_timestamp = std::chrono::duration_cast< std::chrono::milliseconds >
-                (std::chrono::system_clock::now().time_since_epoch());
-        double unix_timestamp_ms = std::chrono::milliseconds(unix_timestamp).count();
+        //std::chrono::milliseconds unix_timestamp = std::chrono::duration_cast< std::chrono::milliseconds >
+                //(std::chrono::system_clock::now().time_since_epoch());
+        //double unix_timestamp_ms = std::chrono::milliseconds(unix_timestamp).count();
 
         // Read image from realsense
+        mMutexInput.lock();
+        double unix_timestamp_ms = lTimestamp.front();
         cv::Mat imD = processed_depth.front();
         cv::Mat imRGB = processed_color.front();
+        mMutexInput.unlock();
+
+        // Pass the image to ARUCO marker detection system
+        if (ARUCOStandBy){
+            imAruco = processed_color.front();
+            SLAM.mpOpDetector->OpLoadImageRGBD(imOP, imD, unix_timestamp_ms);
+        }
+
+        // Pass the image to Openpose system
+        if (OpStandBy){
+            imOP = processed_color.front();
+            SLAM.mpOpDetector->OpLoadImageRGBD(imOP, imD, unix_timestamp_ms);
+        }
 
         // Pass the image to the SLAM system
         SLAM.TrackRGBD(imRGB, imD, unix_timestamp_ms);
-
-        //cout << message << endl;
-        // Pass the image to ARUCO marker detection system
-        imRGB.copyTo(imAruco);
-        if (ARUCOStandBy)
-            SLAM.mpArucoDetector->ArucoLoadImage(imAruco, unix_timestamp_ms);
-
-        // Pass the image to Openpose system
-        imRGB.copyTo(imOP);
-        if (OpStandBy)
-            SLAM.mpOpDetector->OpLoadImageRGBD(imOP, imD, unix_timestamp_ms);
     }
 
     if (SLAM.isShutdown())
         break;
 }
-    // Stop all threads
-    // SLAM.Shutdown();
+    // Stop realsense
     pipe.stop();
 
     // Save camera trajectory
-
     SLAM.SaveKeyFrameTrajectory("RGBDTrajectory.txt");
-
     SLAM.SaveSkeletonTrajectory("HumanSkeletonTrajectory.txt");
+
+    // Shutdown all threads
+    SLAM.Shutdown();
 
     return 0;
 }

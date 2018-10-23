@@ -124,8 +124,7 @@ int main()
         if (OpStandBy)
             SLAM.mpOpDetector->OpLoadImageRGBD(imOP, imD, tframe);
 
-        // TODO: WAIT FOR OPENPOSE FINISH FLAG (OR TIMESTAMP EQUALS)
-        /*
+        // WAIT FOR OPENPOSE FINISH FLAG (OR TIMESTAMP EQUALS)
         int SLAMFrame = ni + 1;
         int OpFrame;
         while (bHumanPose){
@@ -134,7 +133,7 @@ int main()
                 break;
             }
         }
-         */
+
 
 #ifdef COMPILEDWITHC11
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();

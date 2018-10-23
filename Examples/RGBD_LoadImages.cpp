@@ -131,12 +131,14 @@ int main()
         // Wait for openpose
         int SLAMFrame = ni + 1;
         int OpFrame;
+        /*
         while (bHumanPose){
             OpFrame = SLAM.mpOpDetector->mFramecnt;
             if (OpFrame>=SLAMFrame){
                 break;
             }
         }
+        */
 
         //cout << "Processed frame: " << SLAMFrame << " " << OpFrame <<endl;
 
