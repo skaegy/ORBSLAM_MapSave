@@ -371,7 +371,6 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const d
     // Key point, key points matching, depth, coordinates of matching points, divide of key points
     /// Use mask for extracting ORB featuers
     if (mpSystem->mbHumanPose){
-
         if (mpOpDetector->mlHumanMask.size()>0){
             mImMask = mpOpDetector->mlHumanMask.front();
         }

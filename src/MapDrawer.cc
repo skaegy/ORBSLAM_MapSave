@@ -51,6 +51,7 @@ void MapDrawer::DrawMapPoints(){
 
     glPointSize(mPointSize);
     glBegin(GL_POINTS);
+    //TODO: Color Points
     glColor3f(0.3,0.3,0.3);
 
     for(size_t i=0, iend=vpMPs.size(); i<iend;i++)
@@ -59,8 +60,14 @@ void MapDrawer::DrawMapPoints(){
             continue;
         cv::Mat pos = vpMPs[i]->GetWorldPos();
         /// Only Show points not on the floor plane
-        if (pos.at<float>(1) < (0.3*mCamZ) )//&& pos.at<float>(1) > (-2 + mCamZ) )
+        if (pos.at<float>(1) < (0.3*mCamZ) ){
+            //float cx = abs(pos.at<float>(0))/(abs(pos.at<float>(0)) + abs(pos.at<float>(1)) + abs(pos.at<float>(2)));
+            //float cy = abs(pos.at<float>(1))/(abs(pos.at<float>(0)) + abs(pos.at<float>(1)) + abs(pos.at<float>(2)));
+            //float cz = abs(pos.at<float>(2))/(abs(pos.at<float>(0)) + abs(pos.at<float>(1)) + abs(pos.at<float>(2)));
+            //glColor3f(cx,cy,cz);
             glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
+        }//&& pos.at<float>(1) > (-2 + mCamZ) )
+
     }
     glEnd();
 
@@ -68,6 +75,8 @@ void MapDrawer::DrawMapPoints(){
     glPointSize(mPointSize);
     glBegin(GL_POINTS);
     glColor3f(0.8,0.0,0.0);
+    //glColor3f(0.3,0.3,0.3);
+
 
     for(set<MapPoint*>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++)
     {

@@ -4,25 +4,27 @@
 # Camera Parameters. Adjust them!
 #--------------------------------------------------------------------------------------------
 
-# Camera calibration and distortion parameters (OpenCV) 
-Camera.fx: 618.738
-Camera.fy: 618.296
-Camera.cx: 324.929
-Camera.cy: 241.133
-#Camera.fx: 309.369
-#Camera.fy: 309.148
-#Camera.cx: 214.465
-#Camera.cy: 120.566
-#Camera.fx: 677.322
-#Camera.fy: 604.246
-#Camera.cx: 318.957
-#Camera.cy: 297.472
-
-#Camera.k1: 0.1081
-#Camera.k2: -0.0793
-#Camera.p1: 0.01169
-#Camera.p2: 0.0018
-#Camera.k3: 0.000000
+# Camera calibration and distortion parameters (OpenCV)
+##---- RS-D415 (640x480) ----##
+#Camera.fx: 618.738
+#Camera.fy: 618.296
+#Camera.cx: 324.929
+#Camera.cy: 241.133
+##---- RS-D435 (640x480) ----##
+Camera.fx: 619.843
+Camera.fy: 620.212
+Camera.cx: 323.733
+Camera.cy: 238.785
+##---- RS-D435 (1280x720) ----##
+#Camera.fx: 929.764
+#Camera.fy: 930.318
+#Camera.cx: 645.600
+#Camera.cy: 358.178
+##---- Endoscopy (640x640) ----##
+#Camera.fx: 612.20
+#Camera.fy: 621.00
+#Camera.cx: 553.40
+#Camera.cy: 544.70
 
 Camera.k1: 0.000000
 Camera.k2: 0.000000
@@ -31,8 +33,9 @@ Camera.p2: 0.000000
 Camera.k3: 0.000000
 
 Camera.width: 640
+#Camera.height: 640
 Camera.height: 480
-Camera.Z: 0.6
+Camera.Z: 0.3
 
 # Camera frames per second 
 Camera.fps: 30
@@ -54,7 +57,7 @@ DepthMapFactor: 1000.0
 #--------------------------------------------------------------------------------------------
 
 # ORB Extractor: Number of features per image
-ORBextractor.nFeatures: 1500
+ORBextractor.nFeatures: 2000
 
 # ORB Extractor: Scale factor between levels in the scale pyramid 	
 ORBextractor.scaleFactor: 1.5

@@ -31,7 +31,7 @@ namespace ORB_SLAM2
 
 Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Tracking *pTracking,
         ArucoDetector *pArucoDetector, OpDetector *pOpDetector,
-        const string &strSettingPath, const bool bReuse, const bool bHumanPose, const bool bARUCODetect):
+        const string &strSettingPath, bool bReuse, bool bHumanPose, bool bARUCODetect):
     mpSystem(pSystem), mpFrameDrawer(pFrameDrawer),mpMapDrawer(pMapDrawer), mpTracker(pTracking),
     mpArucoDetector(pArucoDetector), mpOpDetector(pOpDetector),
     mbFinishRequested(false), mbFinished(true), mbStopped(false), mbStopRequested(false)
@@ -148,7 +148,7 @@ void Viewer::Run(){
             .SetLock(pangolin::LockLeft, pangolin::LockBottom);
 
     // Add Global coordinate system
-    /*
+
     pangolin::Renderable tree;
     tree.Add( std::make_shared<pangolin::Axis>() );
     d_cam.SetDrawFunction([&](pangolin::View& view){
@@ -161,7 +161,7 @@ void Viewer::Run(){
         view.Activate(s_cam_fix);
         tree_fix.Render();
     });
-    */
+
     Twc.SetIdentity();
 
     /// OPENCV IMSHOW
@@ -340,17 +340,17 @@ void Viewer::Run(){
         if(mbHumanPose){
             if (mpOpDetector->mvJoints3DEKF.size()>0){
                 std::vector<cv::Mat>::iterator it = mpOpDetector->mvJoints3DEKF.end();
-                std::vector<cv::Mat>::iterator it_raw = mpOpDetector->mvJoints3Draw.end();
-                //cv::Mat Joints3Dekf = mpOpDetector->mvJoints3DEKF.back();
                 cv::Mat Joints3Dekf = *(it-1);
-                cv::Mat Joints3Draw = *(it_raw-1);
-                //std::vector<cv::Mat> mvJoints3DEKF = mpOpDetector->mvJoints3DEKF;
-
                 d_cam.Activate(s_cam);
                 Draw3DLowerJoints(Joints3Dekf,0); // Smoothed Skeleton
-                //Draw3DLowerJoints(Joints3Draw,1); // Raw Skeleton
-                //Draw3Dtrj(mvJoints3DEKF, mTrjHistory);
+                std::vector<cv::Mat> mvJoints3DEKF = mpOpDetector->mvJoints3DEKF; // Smoothed Trajectory of Skeleton
+                Draw3Dtrj(mvJoints3DEKF, mTrjHistory);
 
+                //Draw3DLowerJoints(Joints3Draw,1); // Raw Skeleton
+                //std::vector<cv::Mat>::iterator it_raw = mpOpDetector->mvJoints3Draw.end();
+                //cv::Mat Joints3Draw = *(it_raw-1);
+
+                // Show 2D view
                 d_cam_fix.Activate(s_cam_fix);
                 Draw2DHumanLoc(Joints3Dekf);
 
@@ -363,7 +363,7 @@ void Viewer::Run(){
                     mHIP_C = hip_c3D;
                 }
 
-                // Show angles
+                /// Show angles on GUI
                 CalcHumanJointAngles(Joints3Dekf, &mJointAngles, Twc);
                 Rshank = mJointAngles.RShank;  Lshank = mJointAngles.LShank;
                 RThigh = mJointAngles.RThigh;  LThigh = mJointAngles.LThigh;
@@ -490,8 +490,9 @@ void Viewer::Run(){
     SetFinish();
 }
 
-void Viewer::Draw3DJoints(cv::Mat Joints3D) {
-    // Draw point and links the 3D point clound
+void Viewer::Draw3DJoints(cv::Mat &Joints3D) {
+    /* This function draw the skeleton of the full body
+     * */
     glPointSize(10);
     glBegin(GL_POINTS);
     glColor3f(0.2f, 0.2f, 0.f);
@@ -533,7 +534,7 @@ void Viewer::Draw3DJoints(cv::Mat Joints3D) {
     glEnd();
 }
 
-void Viewer::Draw3DLowerJoints(cv::Mat Joints3D, int mode){
+void Viewer::Draw3DLowerJoints(cv::Mat &Joints3D, const int mode){
     // Draw point and links the 3D point clound
     glLineWidth(5);
     if (mode == 0)
@@ -605,7 +606,7 @@ void Viewer::Draw3DLowerJoints(cv::Mat Joints3D, int mode){
 
 }
 
-void Viewer::Draw2DHumanLoc(cv::Mat Joints3D){
+void Viewer::Draw2DHumanLoc(cv::Mat &Joints3D){
     cv::Vec3f HIP_C = Joints3D.at<cv::Vec3f>(8);
     cv::Vec3f HIP_R = Joints3D.at<cv::Vec3f>(9);
     cv::Vec3f HIP_L = Joints3D.at<cv::Vec3f>(12);
@@ -668,17 +669,17 @@ void Viewer::Draw2DCamLoc(pangolin::OpenGlMatrix &Twc){
 
 }
 
-void Viewer::Draw3Dtrj(std::vector<cv::Mat>Joints3D, int N_history){
+void Viewer::Draw3Dtrj(std::vector<cv::Mat>vJoints3D, int N_history){
     glLineWidth(2);
     glColor3f(0.8,0.0,0.8);
     int pLowerLimb[13] = {8,9,10,11,12,13,14,19,20,21,22,23,24};
-    int N_store = Joints3D.size();
+    int N_store = vJoints3D.size();
     cv::Mat Joints_now, Joints_last;
 
     glBegin(GL_LINES);
     if (N_store >= N_history){ // current data > max plot trajectory data
-        for (std::vector<cv::Mat>::iterator it = Joints3D.end() -1; it != Joints3D.end() - N_history; it = it - 1){
-            if (it == Joints3D.end()-1){ //t=1
+        for (std::vector<cv::Mat>::iterator it = vJoints3D.end() -1; it != vJoints3D.end() - N_history; it = it - 1){
+            if (it == vJoints3D.end()-1){ //t=1
                 Joints_last = *it;
             }
             else{ // t>1
@@ -702,8 +703,8 @@ void Viewer::Draw3Dtrj(std::vector<cv::Mat>Joints3D, int N_history){
         }
     }
     else{ // current data < max plot trajectory data
-        for (std::vector<cv::Mat>::iterator it = Joints3D.end()-1; it == Joints3D.begin(); it = it-1){
-            if (it == Joints3D.end()-1){ //t=1
+        for (std::vector<cv::Mat>::iterator it = vJoints3D.end()-1; it == vJoints3D.begin(); it = it-1){
+            if (it == vJoints3D.end()-1){ //t=1
                 Joints_last = *it;
             }
             else{ // t>1
@@ -729,7 +730,7 @@ void Viewer::Draw3Dtrj(std::vector<cv::Mat>Joints3D, int N_history){
     glEnd();
 }
 
-void Viewer::Draw2Dtrj(std::vector<cv::Mat>Joints3D, cv::Mat& Img, bool FrontViewFlag, int N_history){
+void Viewer::Draw2Dtrj(std::vector<cv::Mat>vJoints3D, cv::Mat& Img, bool FrontViewFlag, int N_history){
     /// 3D Lower Limb (pixel): 0.8m (width) x 1.2m (height)
     double HeigthPixel = Img.rows * 0.9;
     int floorBound = (int)(Img.rows * 0.9);
@@ -751,14 +752,14 @@ void Viewer::Draw2Dtrj(std::vector<cv::Mat>Joints3D, cv::Mat& Img, bool FrontVie
     cv::Mat Joints_now, Joints_last;
     cv::Mat MatBuf;
 
-    int N_size = Joints3D.size(), N_valid;
+    int N_size = vJoints3D.size(), N_valid;
     if (N_size <= N_history)
         N_valid = N_size;
     else
         N_valid = N_history;
 
-    for (std::vector<cv::Mat>::iterator it = Joints3D.end()-1; it != Joints3D.end() - N_valid ; it = it -1){
-        if (it == Joints3D.end() - 1){ //t=1
+    for (std::vector<cv::Mat>::iterator it = vJoints3D.end()-1; it != vJoints3D.end() - N_valid ; it = it -1){
+        if (it == vJoints3D.end() - 1){ //t=1
             /// Calculate normalized 3D Joints
             MatBuf = *it;
             cv::Mat MatCpy = MatBuf.clone();
@@ -843,7 +844,7 @@ double Viewer::AngleLink2Plane(cv::Vec3f point3d, cv::Mat plane3d){
     return beta;
 }
 
-double Viewer::AnglePlane2Plane(cv::Mat plane1, cv::Mat plane2){
+double Viewer::AnglePlane2Plane(cv::Mat &plane1, cv::Mat &plane2){
     double theta = 0.0;
     cv::Vec3f plane1_Vec1 = plane1.at<cv::Vec3f>(1) - plane1.at<cv::Vec3f>(0);
     plane1_Vec1 = plane1_Vec1 / (cv::norm(plane1_Vec1) + 1e-23);
@@ -863,7 +864,7 @@ double Viewer::AnglePlane2Plane(cv::Mat plane1, cv::Mat plane2){
     return theta;
 }
 
-cv::Mat Viewer::DrawSkel2DView(cv::Mat Joints3D, cv::Size ImgSize, bool FrontViewFlag){
+cv::Mat Viewer::DrawSkel2DView(cv::Mat &Joints3D, cv::Size ImgSize, const bool FrontViewFlag){
     /// ViewFlag: 0 --> front view ; 1 --> side view
     cv::Mat Skel2DView = cv::Mat::zeros(ImgSize, CV_8UC3); // + cv::Scalar(200,200,200);
     //Skel2DView = Draw2Dtrj(Joints3D, Skel2DView, FrontViewFlag);

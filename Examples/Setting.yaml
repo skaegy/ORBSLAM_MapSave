@@ -26,15 +26,15 @@ is_ReuseMap: 1
 
 # the Exsiting Map File Path (if the above item is 0, this is unnessesary)
 
-ReuseMap: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/Monocular/Map_RGBD_BSN_light.bin
+ReuseMap: /media/skaegy/Seagate Backup Plus Drive/Data/SLAM/BSN/20181111/BSN3_MAP/Map_RGBD_BSN20181111_03.bin
 #Map_RGB_Huxley307
 # Load Image Path (While using Load_Image program)
 
-LoadImagePath: /media/skaegy/Seagate Backup Plus Drive/Data/RGBD_skeleton/20180911/Yao_walk_normal
+LoadImagePath: /media/skaegy/Seagate Backup Plus Drive/Data/SLAM/BSN/20181111/BSN3/
 
 # Whether detect human pose (0 for no, 1 for yes)
 
-is_DetectHuman: 1
+is_DetectHuman: 0
 
 # the Openpose parameters File Path
 

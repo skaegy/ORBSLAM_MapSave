@@ -17,10 +17,12 @@ CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
 
 if(COMPILER_SUPPORTS_CXX11)
    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+   set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++11")
    add_definitions(-DCOMPILEDWITHC11)
    message(STATUS "Using flag -std=c++11.")
 elseif(COMPILER_SUPPORTS_CXX0X)
    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+   set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++0x")
    add_definitions(-DCOMPILEDWITHC0X)
    message(STATUS "Using flag -std=c++0x.")
 else()
@@ -30,9 +32,7 @@ endif()
 LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
 
 set(OpenCV_DIR /opt/ros/kinetic/share/OpenCV-3.3.1-dev) # LINK TO OPENCV IN ROS
-#set(OpenCV_DIR /home/skaegy/Thirdparty/opencv341/opencv/build) # LINK TO OPENCV IN ROS
 find_package(OpenCV REQUIRED)
-find_package(OpenPose REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(Pangolin REQUIRED)
 find_package(Boost  1.54.0  	     # Minimum or EXACT version e.g. 1.36.0
@@ -42,6 +42,10 @@ find_package(Boost  1.54.0  	     # Minimum or EXACT version e.g. 1.36.0
 find_package(realsense2 REQUIRED)
 find_package(OpenPose REQUIRED)
 find_package(OpenMP REQUIRED)
+find_package(CUDA QUIET REQUIRED)
+set(CUDA_PROPAGATE_HOST_FLAGS OFF)
+SET(CUDA_HOST_COMPILER /usr/bin/g++)
+LIST(APPEND CUDA_NVCC_FLAGS "--compiler-options -fno-strict-aliasing -use_fast_math")
 
 #add_subdirectory(Thirdparty/DBoW2)
 
@@ -117,7 +121,7 @@ target_link_libraries(RGBD_RTSP ${PROJECT_NAME})
 add_executable(RGBD_RTSPFast Examples/RGBD_RTSPFast.cpp)
 target_link_libraries(RGBD_RTSPFast ${PROJECT_NAME})
 
-# Build tools
+# ----- Vocabulary ------ #
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/tools)
 add_executable(bin_vocabulary
 tools/bin_vocabulary.cc)

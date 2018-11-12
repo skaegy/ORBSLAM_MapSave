@@ -83,7 +83,7 @@ int main()
     // Main loop
     cv::Mat imRGB, imD;
     cv::Mat imAruco, imOP;
-    bool OpStandBy, ARUCOStandBy;
+    bool OpStandBy = false, ARUCOStandBy = false;
 
     while(bHumanPose){
         OpStandBy = SLAM.mpOpDetector->OpStandBy;
@@ -123,6 +123,7 @@ int main()
         if (ARUCOStandBy)
             SLAM.mpArucoDetector->ArucoLoadImage(imAruco, tframe);
 
+
         // Pass the image to Openpose system
         imRGB.copyTo(imOP);
         if (OpStandBy)
@@ -131,14 +132,14 @@ int main()
         // Wait for openpose
         int SLAMFrame = ni + 1;
         int OpFrame;
-        /*
+
         while (bHumanPose){
             OpFrame = SLAM.mpOpDetector->mFramecnt;
             if (OpFrame>=SLAMFrame){
                 break;
             }
         }
-        */
+
 
         //cout << "Processed frame: " << SLAMFrame << " " << OpFrame <<endl;
 
@@ -162,7 +163,6 @@ int main()
         if(ttrack<T)
             usleep((T-ttrack)*1e3);
 
-        //sleep(3);
     }
 
     // Tracking time statistics
@@ -193,7 +193,7 @@ int main()
 }
 
 void LoadImages(const string &strAssociationFilename, vector<string> &vstrImageFilenamesRGB,
-                vector<string> &vstrImageFilenamesD, vector<double> &vTimestamps)
+                vector<string> &vstrImageFilenamesDepth, vector<double> &vTimestamps)
 {
     ifstream fAssociation;
     fAssociation.open(strAssociationFilename.c_str());

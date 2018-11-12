@@ -48,7 +48,7 @@ class Viewer
 public:
     Viewer(System* pSystem, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer, Tracking *pTracking,
             ArucoDetector* pArucoDetector, OpDetector* pDetector,
-            const string &strSettingPath, const bool bReuse, const bool bHumanPose, const bool bARUCODetect);
+            const string &strSettingPath, bool bReuse, bool bHumanPose, bool bARUCODetect);
     // Main thread function. Draw points, keyframes, the current camera pose and the last processed
     // frame. Drawing is refreshed according to the camera fps. We use Pangolin.
     void Run();
@@ -82,25 +82,25 @@ public:
 	cv::Mat mHumanMask;
 
 private:
-    void Draw3DJoints(cv::Mat Joints3D);
+    void Draw3DJoints(cv::Mat &Joints3D);
 
-	void Draw3DLowerJoints(cv::Mat Joints3D, int mode);
+	void Draw3DLowerJoints(cv::Mat &Joints3D, const int mode);
 
-    void Draw2DHumanLoc(cv::Mat Joints3D);
+    void Draw2DHumanLoc(cv::Mat &Joints3D);
 
     void Draw2DCamLoc(pangolin::OpenGlMatrix &Twc);
 
+	double AngleLink2Link(cv::Vec3f point1, cv::Vec3f point_mid, cv::Vec3f point2);
+
     double AngleLink2Plane(cv::Vec3f point3d, cv::Mat plane3d);
 
-    double AnglePlane2Plane(cv::Mat plane1, cv::Mat plane2);
+    double AnglePlane2Plane(cv::Mat &plane1, cv::Mat &plane2);
 
-    double AngleLink2Link(cv::Vec3f point1, cv::Vec3f point_mid, cv::Vec3f point2);
+    cv::Mat DrawSkel2DView(cv::Mat &Joints3D, cv::Size ImgSize, const bool FrontViewFlag);
 
-    cv::Mat DrawSkel2DView(cv::Mat Joints3D, cv::Size ImgSize, bool FrontViewFlag);
+    void Draw3Dtrj(std::vector<cv::Mat> vJoints3D, int N_history);
 
-    void Draw3Dtrj(std::vector<cv::Mat> Joints3D, int N_history);
-
-	void Draw2Dtrj(std::vector<cv::Mat> Joints3D, cv::Mat& Img, bool FrontViewFlag, int N_history);
+	void Draw2Dtrj(std::vector<cv::Mat> vJoints3D, cv::Mat& Img, bool FrontViewFlag, int N_history);
 
     cv::Mat CalcHumanBodyCoord(cv::Vec3f HIP_R, cv::Vec3f HIP_C, cv::Vec3f HIP_L);
 

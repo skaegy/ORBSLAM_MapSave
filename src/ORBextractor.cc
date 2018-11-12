@@ -1044,7 +1044,7 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
 { 
     if(_image.empty())
         return;
-
+    /// Extractor with Mask
     Mat imageIn = _image.getMat();
     Mat Mask = _mask.getMat();
 

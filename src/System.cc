@@ -165,6 +165,7 @@ System::System(const string &strVocFile, const string &strSettingsFile,
             (*it)->SetMapPoints(mpMap->GetAllMapPoints());
             (*it)->SetSpanningTree(vpKFs);
             (*it)->SetGridParams(vpKFs);
+            //TODO: SET RGB-D images & Point Cloud
             // Reconstruct map points Observation
         }
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
