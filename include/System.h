@@ -128,10 +128,13 @@ public:
 	void SaveSkeletonRequest();
 	void SaveSkeletonTimeStamp(const string &filename);
 	void SaveSkeletonTrajectory(const string &filename);
+	void SaveSkeletonRawTrajectory(const string &filename);
+    void SaveOpenposeTrajectory(const string &filename);
 
 
     // Save dense camera trajectory & camera keyframe trajectory
     void SaveTrajectoryRequest();
+    void SaveCameraLocTrajectory(const string &filename);
     void SaveCameraTrajectory(const string &filename);
     void SaveKeyFrameTrajectory(const string &filename);
 
@@ -145,6 +148,7 @@ public:
     udpSocket* mpUDPsocket;
 
     bool mbHumanPose;
+    vector<cv::Mat> mvCurrentCamPos;
 private:
 
     // ORB vocabulary used for place recognition and feature matching.
@@ -192,6 +196,7 @@ private:
 
     // Thread Reset flag
     std::mutex mMutexReset;
+    bool mbReuse;
     bool mbReset;
     bool mbShutdown = false;
 

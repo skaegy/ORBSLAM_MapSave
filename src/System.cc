@@ -165,6 +165,7 @@ System::System(const string &strVocFile, const string &strSettingsFile,
             (*it)->SetMapPoints(mpMap->GetAllMapPoints());
             (*it)->SetSpanningTree(vpKFs);
             (*it)->SetGridParams(vpKFs);
+
             //TODO: SET RGB-D images & Point Cloud
             // Reconstruct map points Observation
         }
@@ -225,6 +226,7 @@ System::System(const string &strVocFile, const string &strSettingsFile,
         mptArucoDetector = new thread(&ORB_SLAM2::ArucoDetector::Run, mpArucoDetector);
 
     // 9. Initialize the Viewer thread and launch
+    mbReuse = bReuse;
     mpViewer = new Viewer(this, mpFrameDrawer,mpMapDrawer,mpTracker, mpArucoDetector, mpOpDetector,
             strSettingsFile, bReuse, bHumanPose, bARUCODetect);
     if(bUseViewer)
@@ -319,7 +321,16 @@ cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const
     }
     }
 
-    return mpTracker->GrabImageStereo(imLeft,imRight,timestamp);
+    cv::Mat mCurrentCamPos = mpTracker->GrabImageStereo(imLeft,imRight,timestamp);
+    if (mCurrentCamPos.empty()){
+        cv::Mat Buf = cv::Mat::eye(4,4,CV_32FC1);
+        mvCurrentCamPos.push_back(Buf);
+    }
+    else{
+        mvCurrentCamPos.push_back(mCurrentCamPos);
+    }
+
+    return mCurrentCamPos;
 }
 
 cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const double &timestamp)
@@ -377,7 +388,18 @@ cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const doub
     }
     }
 
-    return mpTracker->GrabImageRGBD(im,depthmap,timestamp);
+    /// Current Camera Pose
+    cv::Mat mCurrentCamPos = mpTracker->GrabImageRGBD(im,depthmap,timestamp);
+    if (mCurrentCamPos.empty()){
+        cv::Mat Buf = cv::Mat::eye(4,4,CV_32FC1);
+        mvCurrentCamPos.push_back(Buf);
+    }
+    else{
+        mvCurrentCamPos.push_back(mCurrentCamPos);
+    }
+
+
+    return mCurrentCamPos;
     /* 1) Initialization (t=1)
      * Feature (current frame) > 500 --> Initialization
      * Frame 1 = Key frame, pose = [I, 0]
@@ -444,7 +466,17 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
     }
 
     //return (mpTracker->GrabImageMonocular(im,timestamp)).clone();
-    return (mpTracker->GrabImageMonocular(im,timestamp));
+    cv::Mat mCurrentCamPos = mpTracker->GrabImageMonocular(im,timestamp);
+    if (mCurrentCamPos.empty()){
+        cv::Mat Buf = cv::Mat::eye(4,4,CV_32FC1);
+        mvCurrentCamPos.push_back(Buf);
+    }
+    else{
+        mvCurrentCamPos.push_back(mCurrentCamPos);
+    }
+
+    return mCurrentCamPos;
+
     /* 1) Initialization (t=1)
      * Condition --> No. of features (two adjacent frames) > 100 && No. of matching features > 100
      * Frame 1 = Key frame, pose = [I, 0]
@@ -504,17 +536,16 @@ void System::Shutdown()
 {
     mpLocalMapper->RequestFinish();
     mpLoopCloser->RequestFinish();
-    //mpViewer->RequestFinish();
+    mpViewer->RequestFinish();
     //mpArucoDetector->RequestFinish();
 
     // Wait until all thread have effectively stopped
-    /*
     while(!mpLocalMapper->isFinished() || !mpLoopCloser->isFinished() )
     {
         usleep(5000);
     }
-     */
 
+    ShutdownRequest();
     pangolin::BindToContext("ORB-SLAM2: Map Viewer");
 }
 
@@ -574,7 +605,7 @@ void System::SaveSkeletonTrajectory(const string &filename){
     f.open(filename.c_str());
     f << fixed;
 
-    if (Joints3D.size()>0){
+    if (!Joints3D.empty()){
         for(vector<cv::Mat>::iterator lit=Joints3D.begin(),lend=Joints3D.end();lit!=lend;lit++)
         {
             cv::Mat Joints = *lit;
@@ -589,9 +620,79 @@ void System::SaveSkeletonTrajectory(const string &filename){
 
 }
 
+void System::SaveSkeletonRawTrajectory(const string &filename) {
+    cout << endl << "Saving human skeleton trajectory to " << filename << " ..." << endl;
+    vector<cv::Mat> Joints3D = mpOpDetector->mvJoints3Draw;
+
+    ofstream f;
+    f.open(filename.c_str());
+    f << fixed;
+
+    if (!Joints3D.empty()){
+        for(vector<cv::Mat>::iterator lit=Joints3D.begin(),lend=Joints3D.end();lit!=lend;lit++)
+        {
+            cv::Mat Joints = *lit;
+
+            f << setprecision(3) << Joints << endl;
+        }
+    }
+
+    f.close();
+
+    cout << endl << "Raw 3D trajectory saved!" << endl;
+
+}
+
+void System::SaveOpenposeTrajectory(const string &filename){
+    cout << endl << "Saving openpose joints 2D to " << filename << " ..." << endl;
+    vector<cv::Mat> Joints2D = mpOpDetector->mvOpJoints2D;
+
+    ofstream f;
+    f.open(filename.c_str());
+    f << fixed;
+
+    if (!Joints2D.empty()){
+        for(vector<cv::Mat>::iterator lit=Joints2D.begin(),lend=Joints2D.end();lit!=lend;lit++)
+        {
+            cv::Mat Joints = *lit;
+            f << Joints << endl;
+        }
+    }
+
+    f.close();
+    cout << endl << "Skeleton trajectory saved!" << endl;
+
+}
+
 void System::SaveTrajectoryRequest(){
     SaveKeyFrameTrajectory("KeyFrameTrajectory.txt");
     SaveCameraTrajectory("CameraTrajectory.txt");
+    if (mbReuse){
+        SaveCameraLocTrajectory("CamLocTrajectory.txt");
+    }
+}
+
+void System::SaveCameraLocTrajectory(const string &filename){
+    cout << endl << "Saving camera trajectory (localization mode) to " << filename << " ..." << endl;
+
+    ofstream f;
+    f.open(filename.c_str());
+    f << fixed;
+
+    for(vector<cv::Mat>::iterator lit=mvCurrentCamPos.begin();lit!=mvCurrentCamPos.end(); lit++)
+    {
+        cv::Mat mCameraPose = *lit;
+        cv::Mat mRot = mCameraPose.colRange(0,3).rowRange(0,3);
+        cv::Mat mTrans = mCameraPose.rowRange(0,3).col(3);
+
+        f << setprecision(6) << mRot.at<float>(0,0) << " " << mRot.at<float>(0,1) <<  " " << mRot.at<float>(0,2) << " "
+                             << mRot.at<float>(1,0) << " " << mRot.at<float>(1,1) <<  " " << mRot.at<float>(1,2) << " "
+                             << mRot.at<float>(2,0) << " " << mRot.at<float>(2,1) <<  " " << mRot.at<float>(2,2) << " "
+                             << mTrans.at<float>(0) << " " << mTrans.at<float>(1) <<  " " << mTrans.at<float>(2) << endl;
+    }
+    f.close();
+    cout << endl << "Full camera trajectory (localization mode) saved!" << endl;
+
 }
 
 void System::SaveCameraTrajectory(const string &filename){
@@ -646,7 +747,7 @@ void System::SaveCameraTrajectory(const string &filename){
         f << setprecision(6) << *lT/1e3 << " " <<  setprecision(6) << twc.at<float>(0) << " " << twc.at<float>(1) << " " << twc.at<float>(2) << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
     }
     f.close();
-    cout << endl << "trajectory saved!" << endl;
+    cout << endl << "Full camera trajectory saved!" << endl;
 }
 
 void System::SaveKeyFrameTrajectory(const string &filename){
@@ -682,7 +783,7 @@ void System::SaveKeyFrameTrajectory(const string &filename){
     }
 
     f.close();
-    cout << endl << "trajectory saved!" << endl;
+    cout << endl << "Key frame trajectory saved!" << endl;
 }
 
 void System::SaveStereoKeyFrameTrajectory(const string &filename){

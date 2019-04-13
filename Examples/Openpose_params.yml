@@ -3,8 +3,8 @@
 logging_level: 3
 model_pose: BODY_25
 model_folder: /home/skaegy/Github/openpose/models/
-net_resolution_row: 640
-net_resolution_col: 480
+net_resolution_row: 480
+net_resolution_col: 352
 output_resolution_row: -1
 output_resolution_col: -1
 num_gpu: 1
@@ -18,18 +18,31 @@ number_people_max: 1
 part_to_show: 0
 
 # Camera intrinsic parameters
-Camera.width: 640
-Camera.height: 480
-Camera.fx: 618.738
-Camera.fy: 618.296
-Camera.cx: 324.929
-Camera.cy: 241.133
-#Camera.fx: 309.369
-#Camera.fy: 309.148
-#Camera.cx: 214.465
-#Camera.cy: 120.566
+Camera.width: 1280
+Camera.height: 720
+
+# ----- RS D415 640X480
+#Camera.fx: 618.738
+#Camera.fy: 618.296
+#Camera.cx: 324.929
+#Camera.cy: 241.133
+# ---- RS-D435 (640x480) ---- #
+#Camera.fx: 619.843
+#Camera.fy: 620.212
+#Camera.cx: 323.733
+#Camera.cy: 238.785
+# ----- RS D435 1280X720 - Color
+Camera.fx: 929.764
+Camera.fy: 930.318
+Camera.cx: 645.600
+Camera.cy: 358.178
+# ----- RS D435 1280X720 - Depth
+#Camera.fx: 639.423
+#Camera.fy: 639.423
+#Camera.cx: 642.038
+#Camera.cy: 366.950
 
 # Kalman filter parameters
-KF.wk: 0.1
-KF.vk: 0.1
-KF.pk: 1
+KF.wk: 0.001
+KF.vk: 0.01
+KF.pk: 0.01

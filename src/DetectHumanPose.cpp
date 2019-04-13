@@ -64,9 +64,6 @@ OpDetector::OpDetector(const string &strOpenposeSettingsFile, const bool bHumanP
     mKFparameters.pk = fs["KF.pk"];
     mKFparameters.stateNum = 6;
     mKFparameters.measureNum = 3;
-    //mKF_wk = fs["KF.wk"];
-    //mKF_vk = fs["KF.vk"];
-    //mKF_pk = fs["KF.pk"];
 
     fs.release();
     mSensor = SensorMode;
@@ -193,11 +190,13 @@ void OpDetector::Run() {
 const int stateNum = 6;
 const int measureNum = 3;
 while (!mbStopped ) {
-    if (mbHumanPose && mlLoadImage.size() > 0) {
+    usleep(1e5);
+    if (mbHumanPose && !mlLoadImage.empty()) {
         // Load images for extracting human pose
         mMutexColorIm.lock();
         cv::Mat inputImage = mlLoadImage.front();
-        double timestamp = mlLoadTimestamp.front();
+        /// -------- pop
+        mlLoadImage.pop_back();
         mMutexColorIm.unlock();
 
         // Openpose for single person tracking
@@ -209,6 +208,12 @@ while (!mbStopped ) {
             const auto poseKeypoints = datumProcessed->at(0).poseKeypoints;
             OutputImage = datumProcessed->at(0).cvOutputData;
             joints2D = poseKeypoints.getConstCvMat();
+
+            mMutexOutputIm.lock();
+            mlRenderPoseImage.push_front(OutputImage);
+            if (mlRenderPoseImage.size() > 1)
+                mlRenderPoseImage.pop_back();
+            mMutexOutputIm.unlock();
         }
 
         // OP-Pose from Image
@@ -237,7 +242,8 @@ while (!mbStopped ) {
         cv::Mat joints2D = poseKeypoints.getConstCvMat();
         */
 
-        if (joints2D.rows > 0){
+        if (joints2D.cols > 0){
+
             /* OP-Pose from image
             cv::Mat keyJoint2D =GetInformPersonJoint(joints2D, render_threshold, cv::Size(inputImage.cols, inputImage.rows));
             auto newposeKeypoints = cvMatToOpOutput.createArray(keyJoint2D, scaleInputToOutput, outputResolution);
@@ -246,27 +252,23 @@ while (!mbStopped ) {
             */
 
             /* OP-Tracking */
-            joints2D.copyTo(mJoints2D);
+            mMutexJoint.lock();
+            mvOpJoints2D.push_back(joints2D.clone());
+            mMutexJoint.unlock();
 
-            //Plot2DJoints(mJoints2D, inputImage, render_threshold);
+            //Plot2DJoints(joints2D, inputImage, render_threshold);
 
-            mMutexOutputIm.lock();
-            mlRenderPoseImage.push_front(OutputImage);
-            if (mlRenderPoseImage.size() > 2)
-                mlRenderPoseImage.pop_back();
-            mMutexOutputIm.unlock();
-
-            // RGB-D (mSensor == 2)
-            if (mlLoadDepth.size() > 0){
+            if (!mlLoadDepth.empty()){
                 //const auto timeBegin = std::chrono::high_resolution_clock::now();
                 /// Get depth value and map to 3D skeleton
                 mMutexDepthIm.lock();
                 cv::Mat inputDepth = mlLoadDepth.front();
+                mlLoadDepth.pop_back();
                 mMutexDepthIm.unlock();
 
-                mJoints3D = Skeleton2Dto3D(mJoints2D, inputDepth, mOPflag_render_threshold);
+                mJoints3D = Skeleton2Dto3D(joints2D, inputDepth, mOPflag_render_threshold);
                 // TODO: Depth value predict using KF? to estimate the depth of the joint without measured value
-                if (mvJoints3DEKF.size()>0)
+                if (!mvJoints3DEKF.empty())
                     mJoints3D_last = mvJoints3DEKF.back();
                 else
                     mJoints3D_last = mJoints3D.clone();
@@ -278,29 +280,33 @@ while (!mbStopped ) {
                 /// KALMAN SMOOTHER
                 mJoints3D_EKFsmooth = KFupdate(mJoints3D, stateNum, measureNum);
                 // TODO: LengthRefine
-                KFupdate(mJoints3D, mJoints3D_last, stateNum, measureNum);
+                //KFupdate(mJoints3D, mJoints3D_last, stateNum, measureNum);
 
 
                 /// BODY PHYSICAL CONSTRAINTS
                 // Update the human body parameters during the tracking,
                 // which will be used as the follow physical constraints in the smoothing
-                UpdateHumanParams_LinkLength(mJoints3D_EKFsmooth, 10);
+                UpdateHumanParams_LinkLength(mJoints3D_EKFsmooth, 20);
 
                 /// Generate the mask according to the joints captured from openpose
                 mHumanMask = cv::Mat::ones(inputImage.size(),CV_8UC1);
                 mHumanMask.setTo(cv::Scalar(255));
-                //Joints2DSeg(inputImage, mJoints2D, mHumanMask);
-                Skeleton3DSeg(inputDepth,mJoints2D,mJoints3D_EKFsmooth,mHumanMask);
+
+                //Skeleton3DSeg(inputDepth,joints2D,mJoints3D_EKFsmooth,mHumanMask);
+                SkeletonSquareMask(inputDepth, joints2D, mHumanMask);
 
                 mMutexOutputIm.lock();
-                mlHumanMask.push_front(mHumanMask);
-                if (mlHumanMask.size() > 2)
+                mlHumanMask.push_front(mHumanMask.clone());
+                if (mlHumanMask.size() > 1)
                     mlHumanMask.pop_back();
                 mMutexOutputIm.unlock();
 
                 mMutexJoint.lock();
-                mvJoints3DEKF.push_back(mJoints3D_EKFsmooth);
-                mvTimestamp.push_back(timestamp);
+                mvJoints3DEKF.push_back(mJoints3D_EKFsmooth.clone());
+                mvTimestamp.push_back(mlLoadTimestamp.front());
+
+                /// --- pop
+                mlLoadTimestamp.pop_back();
                 mMutexJoint.unlock();
 
                 //const auto now_time = std::chrono::high_resolution_clock::now();
@@ -312,7 +318,7 @@ while (!mbStopped ) {
         else{
             mMutexOutputIm.lock();
             mlRenderPoseImage.push_front(inputImage);
-            if (mlRenderPoseImage.size() > 2)
+            if (mlRenderPoseImage.size() > 1)
                 mlRenderPoseImage.pop_back();
             mMutexOutputIm.unlock();
         }
@@ -326,7 +332,7 @@ void OpDetector::SetViewer(ORB_SLAM2::Viewer *pViewer){
     mpViewer = pViewer;
 }
 
-void OpDetector::OpLoadImageMonocular(const cv::Mat &im, const double &timestamp){
+void OpDetector::OpLoadImageMonocular(const cv::Mat &im, const double timestamp){
     /* OpLoadImageMonocular
      * Load RGB image and time stamp for extracting human skeleton (2D & 3D)
      * - Input:
@@ -345,7 +351,7 @@ void OpDetector::OpLoadImageMonocular(const cv::Mat &im, const double &timestamp
     mMutexColorIm.unlock();
 }
 
-void OpDetector::OpLoadImageRGBD(const cv::Mat &imRGB, const cv::Mat &imD, const double &timestamp){
+void OpDetector::OpLoadImageRGBD(const cv::Mat &imRGB, const cv::Mat &imD, const double timestamp){
     /* OpLoadImageMonocular
      * Load RGB and Depth image and time stamp for extracting human skeleton (2D & 3D)
      * - Input:
@@ -444,6 +450,44 @@ cv::Mat OpDetector::Skeleton2Dto3D(cv::Mat& Joints2D, cv::Mat& imD, double rende
     return Points3D;
 }
 
+void OpDetector::SkeletonSquareMask(cv::Mat& imD, cv::Mat& Joints2D, cv::Mat& outputIm){
+    int Im_Width = imD.cols;
+    int Im_Height = imD.rows;
+
+    int XMIN = Im_Width - 1;
+    int YMIN = Im_Height - 1;
+    int XMAX = 0;
+    int YMAX = 0;
+
+    /*
+    for (int i =8; i < 15; i++){
+        XMIN = static_cast<int>(Joints2D.at<cv::Vec3f>(i)[0] < XMIN ? Joints2D.at<cv::Vec3f>(i)[0] : XMIN);
+        XMAX = static_cast<int>(Joints2D.at<cv::Vec3f>(i)[0] > XMAX ? Joints2D.at<cv::Vec3f>(i)[0] : XMAX);
+        YMIN = static_cast<int>(Joints2D.at<cv::Vec3f>(i)[1] < YMIN ? Joints2D.at<cv::Vec3f>(i)[1] : YMIN);
+        YMAX = static_cast<int>(Joints2D.at<cv::Vec3f>(i)[1] > YMAX ? Joints2D.at<cv::Vec3f>(i)[1] : YMAX);
+    }*/
+
+    for (int i = 0; i < 25; i++){
+            XMIN = static_cast<int>(Joints2D.at<cv::Vec3f>(i)[0] < XMIN ? Joints2D.at<cv::Vec3f>(i)[0] : XMIN);
+            XMAX = static_cast<int>(Joints2D.at<cv::Vec3f>(i)[0] > XMAX ? Joints2D.at<cv::Vec3f>(i)[0] : XMAX);
+            YMIN = static_cast<int>(Joints2D.at<cv::Vec3f>(i)[1] < YMIN ? Joints2D.at<cv::Vec3f>(i)[1] : YMIN);
+            YMAX = static_cast<int>(Joints2D.at<cv::Vec3f>(i)[1] > YMAX ? Joints2D.at<cv::Vec3f>(i)[1] : YMAX);
+    }
+
+    XMIN = XMIN - 30; XMAX = XMAX + 30;
+    YMIN = YMIN - 30; YMAX = YMAX + 30;
+
+    mXMIN = XMIN <= 0 ? 0 : XMIN;
+    mYMIN = YMIN <= 0 ? 0 : YMIN;
+    mXMAX = XMAX >= Im_Width - 1 ? Im_Width - 1 : XMAX;
+    mYMAX = YMAX >= Im_Height - 1? Im_Height - 1: YMAX;
+
+    //cout << "FUNC " << mYMIN << " "<< mYMAX << " "<< mXMIN << " "<< mXMAX << endl;
+    //cout << outputIm.rows << " " << outputIm.cols << endl;
+    cv::Scalar maskValue = cv::Scalar(0);
+    outputIm.rowRange(mYMIN,mYMAX).colRange(mXMIN,mXMAX).setTo(maskValue);
+}
+
 void OpDetector::Skeleton3DSeg(cv::Mat& imD, cv::Mat& Joints2D, cv::Mat& Joints3D, cv::Mat& outputIm){
     /*
      * Joints3DSeg: calculate the segmentation part of the human body
@@ -484,11 +528,12 @@ void OpDetector::Skeleton3DSeg(cv::Mat& imD, cv::Mat& Joints2D, cv::Mat& Joints3
         int p_y = (int)Joints2D.at<cv::Vec3f>(0)[1];
         int rHead_px;
         if (p_z == 0)
-            rHead_px = (int)((0.15/(Z_max))*mCam_fx);
+            rHead_px = (int)((0.15/(Z_max))*mCamParas.fx);
         else
-            rHead_px = (int)((0.15/(p_z))*mCam_fx);
+            rHead_px = (int)((0.15/(p_z))*mCamParas.fx);
 
         cv::circle(outputIm, Point(p_x,p_y), rHead_px, maskValue, -1);
+
     }
 
     // OTHERS
@@ -508,23 +553,24 @@ void OpDetector::Skeleton3DSeg(cv::Mat& imD, cv::Mat& Joints2D, cv::Mat& Joints3
         float rElp = radiusLink[i]; float lElp = lengthLink[i];
         if (p_z1 > 0 || p_z2 > 0) { // One of the point has depth value
             if (p_z1 > 0 && p_z2 == 0) {
-                rAxisX_px = (int)((rElp/p_z1)*mCam_fx); rAxisY_px = (int)((lElp/p_z1)*mCam_fx); }
+                rAxisX_px = (int)((rElp/p_z1)*mCamParas.fx); rAxisY_px = (int)((lElp/p_z1)*mCamParas.fx); }
             else if (p_z1 == 0 && p_z2 > 0){
-                rAxisX_px = (int)((rElp/p_z2)*mCam_fx); rAxisY_px = (int)((lElp/p_z2)*mCam_fx); }
+                rAxisX_px = (int)((rElp/p_z2)*mCamParas.fx); rAxisY_px = (int)((lElp/p_z2)*mCamParas.fx); }
             else{
-                rAxisX_px = (int)((2*rElp/(p_z1+p_z2))*mCam_fx); rAxisY_px = (int)((2*lElp/((p_z1+p_z2)))*mCam_fx);  }
+                rAxisX_px = (int)((2*rElp/(p_z1+p_z2))*mCamParas.fx); rAxisY_px = (int)((2*lElp/((p_z1+p_z2)))*mCamParas.fx);  }
         }
         else{
-            rAxisX_px = rElp/Z_max*mCam_fx;  rAxisY_px = lElp/Z_max*mCam_fx;   }
+            rAxisX_px = rElp/Z_max*mCamParas.fx;  rAxisY_px = lElp/Z_max*mCamParas.fx;   }
 
         double angles;
         if (p_x2 == p_x1 )
             angles = 0.0;
         else
             angles = -3.1415/2.0 + atan((p_y2-p_y1)/(p_x2-p_x1));
-        //cout << "Link: " << j1 << "-" << j2 << ": " << rAxisX_px << " " << rAxisY_px << " pz1: " << p_z1 << " p_z2: " << p_z2 << endl;
+
         cv::ellipse(outputIm, Point((p_x1+p_x2)/2, (p_y1+p_y2)/2), Size(rAxisX_px, rAxisY_px), angles*180/3.1415, 0.0, 360.0, maskValue, -1);
     }
+
 }
 
 double OpDetector::GetPixelDepth(cv::Point2i pixel, cv::Mat& imD, int depth_radius){
@@ -691,9 +737,11 @@ cv::KalmanFilter OpDetector::KFinit(struct KalmanFilterParams *KFparams){
 
     Mat transitionMatrix = cv::Mat::eye(KFparams->stateNum, KFparams->stateNum, CV_32FC1);
 
+
     for (int i = 0; i < KFparams->measureNum; i++){
-        transitionMatrix.at<float>(i, KFparams->measureNum+i) = 0.5;
+        transitionMatrix.at<float>(i, KFparams->measureNum + i) = 1;
     }
+
     KF.transitionMatrix = transitionMatrix;
 
     return KF;
@@ -709,7 +757,9 @@ cv::Mat OpDetector::KFupdate(cv::Mat &Joints3D, const int stateNum, const int me
         int idx = mLowerLimbSet[i];
         Vec3f jointRaw = Joints3D_KFsmooth.at<cv::Vec3f>(idx);
         Vec3f jointSmooth;
-        Mat prediction = KFs3D[idx].predict();
+        //cout << KFs3D[idx].processNoiseCov << endl;
+        //cout << KFs3D[idx].measurementNoiseCov << endl;
+        Mat prediction = KFs3D[idx].predict().t();
         Mat measurementPt = Mat::zeros(measureNum, 1, CV_32F); //measurement(x,y)
         if (jointRaw[2] > 0){  // If there is measurement
             measurementPt.at<float>(0) = jointRaw[0];
@@ -722,36 +772,36 @@ cv::Mat OpDetector::KFupdate(cv::Mat &Joints3D, const int stateNum, const int me
         }
 
         Mat estimatedPt = KFs3D[idx].correct(measurementPt);
-        KFs3D[idx].statePost = KFs3D[idx].statePre + KFs3D[idx].gain * KFs3D[idx].temp5;
+        KFs3D[idx].statePost = estimatedPt;
 
         // Refinement according to the human body constraints
         Mat updatePt;
         if (idx == HIP_L)
-            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(HIP_C), mHumanParams.Link_hip_L);
+            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D_KFsmooth.at<cv::Vec3f>(HIP_C), mHumanParams.Link_hip_L);
         else if (idx == HIP_R)
-            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(HIP_C), mHumanParams.Link_hip_R);
+            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D_KFsmooth.at<cv::Vec3f>(HIP_C), mHumanParams.Link_hip_R);
         else if (idx == KNEE_R)
-            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(HIP_R), mHumanParams.Link_thigh_R);
+            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D_KFsmooth.at<cv::Vec3f>(HIP_R), mHumanParams.Link_thigh_R);
         else if (idx == KNEE_L)
-            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(HIP_L), mHumanParams.Link_thigh_L);
+            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D_KFsmooth.at<cv::Vec3f>(HIP_L), mHumanParams.Link_thigh_L);
         else if (idx == ANKLE_R)
-            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(KNEE_R), mHumanParams.Link_shank_R);
+            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D_KFsmooth.at<cv::Vec3f>(KNEE_R), mHumanParams.Link_shank_R);
         else if (idx == ANKLE_L)
-            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(KNEE_L), mHumanParams.Link_shank_L);
+            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D_KFsmooth.at<cv::Vec3f>(KNEE_L), mHumanParams.Link_shank_L);
         else if (idx == TOE_IN_R)
-            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(ANKLE_R), mHumanParams.Link_foot_R);
+            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D_KFsmooth.at<cv::Vec3f>(ANKLE_R), mHumanParams.Link_foot_R);
         else if (idx == TOE_OUT_R)
-            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(ANKLE_R), mHumanParams.Link_foot_R);
+            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D_KFsmooth.at<cv::Vec3f>(ANKLE_R), mHumanParams.Link_foot_R);
         else if (idx == HEEL_R)
-            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(ANKLE_R), mHumanParams.Link_heel_R);
+            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D_KFsmooth.at<cv::Vec3f>(ANKLE_R), mHumanParams.Link_heel_R);
         else if (idx == TOE_IN_L)
-            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(ANKLE_L), mHumanParams.Link_foot_L);
+            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D_KFsmooth.at<cv::Vec3f>(ANKLE_L), mHumanParams.Link_foot_L);
         else if (idx == TOE_OUT_L)
-            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(ANKLE_L), mHumanParams.Link_foot_L);
+            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D_KFsmooth.at<cv::Vec3f>(ANKLE_L), mHumanParams.Link_foot_L);
         else if (idx == HEEL_L)
-            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D.at<cv::Vec3f>(ANKLE_L), mHumanParams.Link_heel_L);
+            updatePt = SmoothWithLengthConstraint(estimatedPt.rowRange(0,3), Joints3D_KFsmooth.at<cv::Vec3f>(ANKLE_L), mHumanParams.Link_heel_L);
 
-        // Update measurement value using the KF
+        // Final output
         if (i>0){
             KFs3D[idx].statePost.at<float>(0) = updatePt.at<float>(0);
             KFs3D[idx].statePost.at<float>(1) = updatePt.at<float>(1);
@@ -767,7 +817,9 @@ cv::Mat OpDetector::KFupdate(cv::Mat &Joints3D, const int stateNum, const int me
             jointSmooth[2] = estimatedPt.at<float>(2);
             Joints3D_KFsmooth.at<cv::Vec3f>(idx) = jointSmooth;
         }
+
     }
+
     return Joints3D_KFsmooth;
 }
 
@@ -778,7 +830,7 @@ void OpDetector::KFupdate(cv::Mat &Joints3D, cv::Mat &JointsLastFrame, const int
     unsigned int SetSize = sizeof(mLowerLimbSet)/ sizeof(mLowerLimbSet[0]);
     double distSkel = SkeletonDist(Joints3D, JointsLastFrame, mLowerLimbSet, SetSize);
 
-    std::cout << "distance between skeleton is: " << distSkel << std::endl;
+    //std::cout << "distance between skeleton is: " << distSkel << std::endl;
 
 }
 
@@ -809,22 +861,29 @@ void OpDetector::InitHumanParams(){
     /* InitHumanParams:
      * This function is to initialize the parameters of the human body skeleton
      * */
-    mHumanParams.Link_thigh_L = 0.0;
-    mHumanParams.Link_thigh_R = 0.0;
-    mHumanParams.Link_shank_L = 0.0;
-    mHumanParams.Link_shank_R = 0.0;
-    mHumanParams.Link_foot_L = 0.0;
-    mHumanParams.Link_foot_R = 0.0;
-    mHumanParams.Link_hip_L = 0.0;
-    mHumanParams.Link_hip_R = 0.0;
-    mHumanParams.Link_heel_L = 0.0;
-    mHumanParams.Link_heel_R = 0.0;
+    mHumanParams.Link_thigh_L = 0.35;
+    mHumanParams.Link_thigh_R = 0.35;
+    mHumanParams.Link_shank_L = 0.35;
+    mHumanParams.Link_shank_R = 0.35;
+    mHumanParams.Link_foot_L = 0.01;
+    mHumanParams.Link_foot_R = 0.01;
+    mHumanParams.Link_hip_L = 0.25;
+    mHumanParams.Link_hip_R = 0.25;
+    mHumanParams.Link_heel_L = 0.1;
+    mHumanParams.Link_heel_R = 0.1;
 
-    mHumanParams.link_heel_MAX = 0.2;     mHumanParams.link_heel_MIN = 0.05;
-    mHumanParams.link_foot_MAX = 0.2;     mHumanParams.link_foot_MIN = 0.05;
-    mHumanParams.link_shank_MAX = 0.6;    mHumanParams.link_shank_MIN = 0.2;
-    mHumanParams.link_thigh_MAX = 0.6;    mHumanParams.link_thigh_MIN = 0.2;
-    mHumanParams.link_hip_MAX = 0.3;      mHumanParams.link_hip_MIN = 0.1;
+    /*
+    mHumanParams.link_heel_MAX = 0.15;     mHumanParams.link_heel_MIN = 0.05;
+    mHumanParams.link_foot_MAX = 0.15;     mHumanParams.link_foot_MIN = 0.05;
+    mHumanParams.link_shank_MAX = 0.5;    mHumanParams.link_shank_MIN = 0.2;
+    mHumanParams.link_thigh_MAX = 0.5;    mHumanParams.link_thigh_MIN = 0.2;
+    mHumanParams.link_hip_MAX = 0.3;      mHumanParams.link_hip_MIN = 0.15;
+     */
+    mHumanParams.link_heel_MAX = 0.1;     mHumanParams.link_heel_MIN = 0.1;
+    mHumanParams.link_foot_MAX = 0.1;     mHumanParams.link_foot_MIN = 0.1;
+    mHumanParams.link_shank_MAX = 0.4;    mHumanParams.link_shank_MIN = 0.3;
+    mHumanParams.link_thigh_MAX = 0.4;    mHumanParams.link_thigh_MIN = 0.3;
+    mHumanParams.link_hip_MAX = 0.3;      mHumanParams.link_hip_MIN = 0.2;
 }
 
 void OpDetector::UpdateHumanParams_LinkLength(cv::Mat &Joints3D, const int window_size){
@@ -965,8 +1024,7 @@ void OpDetector::UpdateHumanParams_LinkLength(cv::Mat &Joints3D, const int windo
                         mHumanParams.Link_heel_L = LinkLength;
                     break;
                 }
-            default:
-                std::cout << "Default: [i] is " << i << std::endl;
+                //std::cout << "Default: [i] is " << i << std::endl;
         }
     }
 }
@@ -994,7 +1052,7 @@ cv::Mat OpDetector::SmoothWithLengthConstraint(cv::Mat measurementPt, cv::Vec3f 
             correctPt.at<float>(0) = parentPtmat.at<float>(0) + sqrt(linkConstraint/linkLength)*vec_x;
             correctPt.at<float>(1) = parentPtmat.at<float>(1) + sqrt(linkConstraint/linkLength)*vec_y;
             correctPt.at<float>(2) = parentPtmat.at<float>(2) + sqrt(linkConstraint/linkLength)*vec_z;
-            //out << "Data: " << linkLength << " " << linkConstraint << " " << measurementPt << " " << updatePt << " " << rootPtmat << endl;
+            //cout << "Data: " << linkLength << " " << linkConstraint << " " << measurementPt << " " << updatePt << " " << rootPtmat << endl;
         }
     }
     return correctPt;

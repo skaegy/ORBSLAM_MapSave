@@ -5,6 +5,7 @@
 #--------------------------------------------------------------------------------------------
 
 # Source of video
+# ---- Some template ---- #
 # "rtsp://127.0.0.1:8554/test"
 # "rtmp://localhost/myapp/mystream"
 # "rtsp://146.169.171.163:8554/test"
@@ -20,21 +21,28 @@ Orb_Vocabulary: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Vocabulary/ORBv
 
 Cam_Setting: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/ORB_RGBD640x480.yaml
 
+# Whether Run the GUI for demonstration (0 for no , 1 for yes).
+
+is_UseViewer: 0
+
 # Whether Run the ORB-SLAM2 System Using the Exsiting Map File (0 for no , 1 for yes).
 
 is_ReuseMap: 1
 
 # the Exsiting Map File Path (if the above item is 0, this is unnessesary)
 
-ReuseMap: /media/skaegy/Seagate Backup Plus Drive/Data/SLAM/BSN/20181111/BSN3_MAP/Map_RGBD_BSN20181111_03.bin
-#Map_RGB_Huxley307
+ReuseMap: /home/skaegy/Projects/Cplus_Project/ORB_Tracking/Examples/Monocular/Maps/Map_RGBD_BSN_20181113_1.bin
+#Map_RGBD_BSN_20181113_1
+#Map_RGBD_Huxley307_0918
+
 # Load Image Path (While using Load_Image program)
-
-LoadImagePath: /media/skaegy/Seagate Backup Plus Drive/Data/SLAM/BSN/20181111/BSN3/
-
+LoadImagePath: /home/skaegy/data/Dataset/HamlynGait/HamlynFinal/YAO/Normal/Normal1
+  #/home/skaegy/data/HumanPose/20180918/Gaits-Yao-forward
+  #/home/skaegy/data/HumanPose/20190208/slam_validation/STATIONARY2
+#/home/skaegy/data/SLAM/BSN/20190208/BSN1
 # Whether detect human pose (0 for no, 1 for yes)
 
-is_DetectHuman: 0
+is_DetectHuman: 1
 
 # the Openpose parameters File Path
 

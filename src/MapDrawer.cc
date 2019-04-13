@@ -258,9 +258,6 @@ void MapDrawer::SetCurrentCameraPose(const cv::Mat &Tcw){
 void MapDrawer::GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M){
     if(!mCameraPose.empty())
     {
-        /// ADD BY SKAEGY
-        mvCameraPose.push_back(mCameraPose);
-        //////////////////////////////
         cv::Mat Rwc(3,3,CV_32F);
         cv::Mat twc(3,1,CV_32F);
         {

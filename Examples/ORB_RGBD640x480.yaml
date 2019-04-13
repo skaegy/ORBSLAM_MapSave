@@ -11,20 +11,20 @@
 #Camera.cx: 324.929
 #Camera.cy: 241.133
 ##---- RS-D435 (640x480) ----##
-Camera.fx: 619.843
-Camera.fy: 620.212
-Camera.cx: 323.733
-Camera.cy: 238.785
-##---- RS-D435 (1280x720) ----##
-#Camera.fx: 929.764
-#Camera.fy: 930.318
-#Camera.cx: 645.600
-#Camera.cy: 358.178
+#Camera.fx: 619.843
+#Camera.fy: 620.212
+#Camera.cx: 323.733
+#Camera.cy: 238.785
+##---- RS-D435 (1280x720) Color ----##
+Camera.fx: 929.764
+Camera.fy: 930.318
+Camera.cx: 645.600
+Camera.cy: 358.178
 ##---- Endoscopy (640x640) ----##
-#Camera.fx: 612.20
-#Camera.fy: 621.00
-#Camera.cx: 553.40
-#Camera.cy: 544.70
+#Camera.fx: 639.423
+#Camera.fy: 639.423
+#Camera.cx: 642.038
+#Camera.cy: 366.950
 
 Camera.k1: 0.000000
 Camera.k2: 0.000000
@@ -32,10 +32,9 @@ Camera.p1: 0.000000
 Camera.p2: 0.000000
 Camera.k3: 0.000000
 
-Camera.width: 640
-#Camera.height: 640
-Camera.height: 480
-Camera.Z: 0.3
+Camera.width: 1280
+Camera.height: 720
+Camera.Z: 0.5
 
 # Camera frames per second 
 Camera.fps: 30
@@ -80,14 +79,14 @@ Viewer.KeyFrameLineWidth: 1
 Viewer.GraphLineWidth: 0.9
 Viewer.PointSize: 5
 Viewer.CameraSize: 0.1
-Viewer.CameraLineWidth: 2
-#Viewer.ViewpointX: 0
-#Viewer.ViewpointY: -0.7
-#Viewer.ViewpointZ: -1.8
-Viewer.ViewpointX: -0.1
-Viewer.ViewpointY: -7
-Viewer.ViewpointZ: 1.5
-Viewer.ViewpointF: 500
+Viewer.CameraLineWidth: 4
+Viewer.ViewpointX: -2.5
+Viewer.ViewpointY: -2.5
+Viewer.ViewpointZ: -2.5
+#Viewer.ViewpointX: -0.1
+#Viewer.ViewpointY: -4
+#Viewer.ViewpointZ: 1.5
+Viewer.ViewpointF: 1000
 Viewer.TrjHistory: 10
 Viewer.WindowSizeX: 1080.0
 Viewer.WindowSizeY: 1920.0

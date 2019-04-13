@@ -91,9 +91,9 @@ public:
 
     void Run();
 
-    void OpLoadImageMonocular(const cv::Mat &im, const double &timestamp);
+    void OpLoadImageMonocular(const cv::Mat &im, const double timestamp);
 
-    void OpLoadImageRGBD(const cv::Mat &imRGB, const cv::Mat &imD, const double &timestamp);
+    void OpLoadImageRGBD(const cv::Mat &imRGB, const cv::Mat &imD, const double timestamp);
 
     void SetViewer(Viewer* pViewer);
 
@@ -109,6 +109,8 @@ public:
 
     // List for various images
     list<cv::Mat> mlLoadImage, mlLoadDepth, mlRenderPoseImage, mlHumanMask;
+    // List for timestamp
+    list<double> mlLoadTimestamp;
 
     // 2D & 3D joints
     cv::Mat mJoints2D, mJoints2D_last;
@@ -116,11 +118,12 @@ public:
     cv::Mat mHumanMask;
     vector<cv::Mat> mvJoints3Draw;
     vector<cv::Mat> mvJoints3DEKF;
+    vector<cv::Mat> mvOpJoints2D;
     vector<double> mvTimestamp;
     cv::Vec3i mNormFloor;  // Norm Vector of the floor plane,
     // in this project we first make sure the initial camera pose is parallel to the floor plane,
     // which means that the mNormFloor = [0 -1 0];
-
+    int mXMIN, mXMAX, mYMIN, mYMAX;
     bool OpStandBy = false; // The flag for OP initialization
     int mFramecnt = 0;
 
@@ -147,6 +150,8 @@ private:
     cv::Mat Skeleton2Dto3D(cv::Mat& Joints2D, cv::Mat& imD, double renderThres);
 
     void Skeleton3DSeg(cv::Mat& imD, cv::Mat& Joints2D, cv::Mat& Joints3D, cv::Mat& outputIm);
+
+    void SkeletonSquareMask(cv::Mat& imD, cv::Mat& Joints2D, cv::Mat &outputIm);
 
     double GetPixelDepth(cv::Point2i pixel, cv::Mat& imD, int depth_radius);
 
@@ -185,7 +190,6 @@ private:
 
     // Camera Parameters
     CameraParameters mCamParas;
-    double mCam_fx, mCam_fy, mCam_ppx, mCam_ppy;
 
     // KF Parameters
     KalmanFilterParams mKFparameters;
@@ -197,9 +201,6 @@ private:
 
     // Sensor
     int mSensor;
-
-    // Time stamp
-    list<double> mlLoadTimestamp;
 
     // Human pose & skeleton parameters
     HumanParams mHumanParams; // struct of human body parameters

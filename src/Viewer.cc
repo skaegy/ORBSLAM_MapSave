@@ -79,11 +79,11 @@ void Viewer::Run(){
     glEnable (GL_BLEND);
     glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    pangolin::CreatePanel("menu").SetBounds(0.0,1.0,0.0,0.1);
+    pangolin::CreatePanel("menu").SetBounds(0.0,1.0,0.0,0.15);
     pangolin::Var<bool> menuFollowCamera("menu.Follow Camera",false,true);
-    pangolin::Var<bool> menuShowPoints("menu.Show Points",true,true);
-    pangolin::Var<bool> menuShowKeyFrames("menu.Show KeyFrames",true,true);
-    pangolin::Var<bool> menuShowGraph("menu.Show Graph",true,true);
+    pangolin::Var<bool> menuShowPoints("menu.Show Points",false,true);
+    pangolin::Var<bool> menuShowKeyFrames("menu.Show KeyFrames",false,true);
+    pangolin::Var<bool> menuShowGraph("menu.Show Graph",false,true);
     pangolin::Var<bool> menuLocalizationMode("menu.Localization Mode",mbReuse,true);
 
     pangolin::Var<bool> menuSaveMap("menu.Save Map",false,false);
@@ -125,18 +125,18 @@ void Viewer::Run(){
 
     // Add named OpenGL viewport to window and provide 3D Handler
     pangolin::View& d_cam_fix = pangolin::CreateDisplay()
-            .SetBounds(0.0, 0.45, 0.1, 0.7, -mWindowSizeY/mWindowSizeX);
+            .SetBounds(0.0, 0.0, 0.1, 0.7, -mWindowSizeY/mWindowSizeX);
 
     pangolin::View& d_cam = pangolin::CreateDisplay()
-            .SetBounds(0.55, 1.0, 0.1, 0.7, -mWindowSizeY/mWindowSizeX)
+            .SetBounds(0.0, 1.0, 0.1, 0.7, -mWindowSizeY/mWindowSizeX)
             .SetHandler(new pangolin::Handler3D(s_cam));
 
     pangolin::View& d_img_orb = pangolin::Display("orb_slam")
-            .SetBounds(0.67, 1.0, 0.7, 1.0, mWindowSizeY/mWindowSizeX);
+            .SetBounds(0.55, 1.0, 0.6, 1.0, mWindowSizeY/mWindowSizeX);
             //.SetLock(pangolin::LockLeft, pangolin::LockBottom);
 
     pangolin::View& d_img_op = pangolin::Display("openpose_skeleton")
-            .SetBounds(0.33, 0.66, 0.7,1.0, mWindowSizeY/mWindowSizeX);
+            .SetBounds(0.05, 0.5, 0.6, 1.0, mWindowSizeY/mWindowSizeX);
             //.SetLock(pangolin::LockLeft, pangolin::LockBottom);
 
     pangolin::View& d_img_frontSkel = pangolin::Display("frontview_skeleton")
@@ -155,24 +155,21 @@ void Viewer::Run(){
         view.Activate(s_cam);
         tree.Render();
     });
+    /*
     pangolin::Renderable tree_fix;
     tree_fix.Add( std::make_shared<pangolin::Axis>() );
     d_cam_fix.SetDrawFunction([&](pangolin::View& view){
         view.Activate(s_cam_fix);
         tree_fix.Render();
-    });
+    }); */
 
     Twc.SetIdentity();
-
-    /// OPENCV IMSHOW
-    //cv::namedWindow("ORB-SLAM2: Current Frame");
-    //cv::namedWindow("Openpose");
 
     bool bFollow = true;
     bool bLocalizationMode = mbReuse;
     mSensor = mpSystem->mSensor;
 
-    const auto time_begin = std::chrono::high_resolution_clock::now();
+    //const auto time_begin = std::chrono::high_resolution_clock::now();
     double lastTime = 0.0;
     mJointAngles.LAnkle=90.0;    mJointAngles.RAnkle=90.0;
     mJointAngles.LFoot =90.0;    mJointAngles.RFoot =90.0;
@@ -181,14 +178,47 @@ void Viewer::Run(){
     mJointAngles.LShank=90.0;    mJointAngles.RShank=90.0;
     mJointAngles.LThigh=90.0;    mJointAngles.RThigh=90.0;
 
-    while(1)
+    const auto time_begin = std::chrono::high_resolution_clock::now();
+    /// LOAD 3D POINT CLOUDS
+
+    if (mbReuse){
+        LoadMapPoints("./PTC/PTC_BSN_1113_1.txt");
+        const auto timeLoadPT = std::chrono::high_resolution_clock::now();
+        const auto timeCostLoadPT =
+                (double) std::chrono::duration_cast<std::chrono::nanoseconds>(timeLoadPT - time_begin).count()
+                * 1e-9;
+        cout << "[Load PointCloud]Time cost is: " << timeCostLoadPT << "s" << endl;
+    }
+
+    // ============ MAIN LOOP FOR DEMONSTRATION ============= //
+    while(true)
     {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        /// DRAW 3D POINT CLOUDS
+        if (!mvPointClouds.empty()){
+            d_cam.Activate(s_cam);
+            glPointSize(10);
+            glBegin(GL_POINTS);
+            for (std::vector<cv::Mat>::iterator it = mvPointClouds.begin();
+                 it != mvPointClouds.end() && it != mvPointClouds.end() - 1 &&
+                 it != mvPointClouds.end() - 2 && it != mvPointClouds.end() - 3; it = it +2)
+            {
+                cv::Mat ptBuf = *it;
+                glColor3f(static_cast<GLfloat>(ptBuf.at<float>(3,0)),
+                          static_cast<GLfloat>(ptBuf.at<float>(4,0)),
+                          static_cast<GLfloat>(ptBuf.at<float>(5,0)));
+                glVertex3f(static_cast<GLfloat>(ptBuf.at<float>(0,0)),
+                           static_cast<GLfloat>(ptBuf.at<float>(1,0)),
+                           static_cast<GLfloat>(ptBuf.at<float>(2,0)));
+            }
+            glEnd();
+        }
+
         ///Draw the Grid every frame
         d_cam.Activate(s_cam);
-        float xmin=-20.0, xmax=20.0, dx=0.5;
-        float zmin=-20.0, zmax=20.0, dz=0.5;
+        float xmin=-20.0f, xmax=20.0f, dx=0.5f;
+        float zmin=-20.0f, zmax=20.0f, dz=0.5f;
         glBegin(GL_LINES);
         glColor4f(0.1f,0.1f,0.1f,0.3f);
         for(double gridx=xmin; gridx<=xmax; gridx+=dx)
@@ -203,6 +233,7 @@ void Viewer::Run(){
         }
         glEnd();
 
+        /*
         d_cam_fix.Activate(s_cam_fix);
         glBegin(GL_TRIANGLE_STRIP);
         glColor4f(0.9, 0.9, 0.9, 0.8);
@@ -211,7 +242,7 @@ void Viewer::Run(){
         glTexCoord2f(0.0f, 1.0f); glVertex3f(-20.0, mCamZ, 20.0);
         glTexCoord2f(1.0f, 1.0f); glVertex3f(20.0, mCamZ, -20.0);
         glTexCoord2f(1.0f, 0.0f); glVertex3f(20.0, mCamZ, 20.0);
-        glEnd();
+        glEnd(); */
 
         mpMapDrawer->GetCurrentOpenGLCameraMatrix(Twc);
         mpMapDrawer->GetCurrentOpenGLCameraMatrix(Twc);
@@ -252,11 +283,12 @@ void Viewer::Run(){
         if(menuShowPoints)
             mpMapDrawer->DrawMapPoints();
 
+        /*
         d_cam_fix.Activate(s_cam_fix);
         glClearColor(1.0f,1.0f,1.0f,1.0f);
         Draw2DCamLoc(Twc);
         if(menuShowPoints)
-            mpMapDrawer->DrawMapPoints2D();
+            mpMapDrawer->DrawMapPoints2D(); */
 
         showPosX=Twc.m[12];
         showPosY=Twc.m[13];
@@ -264,18 +296,17 @@ void Viewer::Run(){
 
         ///--------- display ORB-SLAM  ---------//
         /*
-        if (mpOpDetector->mlHumanMask.size() > 0){
+        if (!mpOpDetector->mlHumanMask.empty()){
             mHumanMask = mpOpDetector->mlHumanMask.front();
         }
         else{
             mHumanMask = cv::Mat::ones(mImageHeight, mImageWidth, CV_8UC1);
         }
-        cv::Mat im = mHumanMask.clone();
+        cv::Mat im(mImageHeight,mImageWidth, CV_8UC3);
+        cv::applyColorMap(mHumanMask, im, 2);
         */
+
         cv::Mat im = mpFrameDrawer->DrawFrame();
-        // display ORB-SLAM in opencv
-        //cv::imshow("ORB-SLAM2: Current Frame",im);
-        // display the image in opengl
         pangolin::GlTexture imageTextureORB(im.cols,im.rows,GL_RGB,false,0,GL_BGR,GL_UNSIGNED_BYTE);
         imageTextureORB.Upload(im.data,GL_BGR,GL_UNSIGNED_BYTE);
         d_img_orb.Activate();
@@ -338,30 +369,39 @@ void Viewer::Run(){
 
         ///--------- display 3D human pose  ---------//
         if(mbHumanPose){
-            if (mpOpDetector->mvJoints3DEKF.size()>0){
+            if (!mpOpDetector->mvJoints3DEKF.empty()){
+                // ---- Draw 3D smoothed skeleton ---- //
                 std::vector<cv::Mat>::iterator it = mpOpDetector->mvJoints3DEKF.end();
                 cv::Mat Joints3Dekf = *(it-1);
                 d_cam.Activate(s_cam);
                 Draw3DLowerJoints(Joints3Dekf,0); // Smoothed Skeleton
-                std::vector<cv::Mat> mvJoints3DEKF = mpOpDetector->mvJoints3DEKF; // Smoothed Trajectory of Skeleton
-                Draw3Dtrj(mvJoints3DEKF, mTrjHistory);
 
-                //Draw3DLowerJoints(Joints3Draw,1); // Raw Skeleton
-                //std::vector<cv::Mat>::iterator it_raw = mpOpDetector->mvJoints3Draw.end();
-                //cv::Mat Joints3Draw = *(it_raw-1);
+                // ---- Draw 3D trajectories ---- //
+                //std::vector<cv::Mat> mvJoints3DEKF = mpOpDetector->mvJoints3DEKF; // Smoothed Trajectory of Skeleton
+                //Draw3Dtrj(mvJoints3DEKF, mTrjHistory);
+
+                // ---- Draw 3D raw skeleton ---- //
+//                std::vector<cv::Mat>::iterator it_raw = mpOpDetector->mvJoints3Draw.end();
+//                cv::Mat Joints3Draw = *(it_raw-1);
+//                Draw3DLowerJoints(Joints3Draw,1); // Raw Skeleton
 
                 // Show 2D view
+                /*
                 d_cam_fix.Activate(s_cam_fix);
-                Draw2DHumanLoc(Joints3Dekf);
+                Draw2DHumanLoc(Joints3Dekf);*/
 
                 // Show distance to hip center
                 cv::Vec3f hip_c3D = Joints3Dekf.at<cv::Vec3f>(8);
+                cv::Vec3f RASI = Joints3Dekf.at<cv::Vec3f>(9);
+                cv::Vec3f LASI = Joints3Dekf.at<cv::Vec3f>(12);
 
                 /// Use these information for robot following
+                /*
                 if (hip_c3D[2] > 0){
                     distHipX = hip_c3D[0]; distHipY = hip_c3D[1]; distHipZ = hip_c3D[2];
                     mHIP_C = hip_c3D;
                 }
+                 */
 
                 /// Show angles on GUI
                 CalcHumanJointAngles(Joints3Dekf, &mJointAngles, Twc);
@@ -376,12 +416,9 @@ void Viewer::Run(){
 
         ///--------- display openpose  ---------//
         if(mbHumanPose){
-            if (mpOpDetector->mlRenderPoseImage.size()>0){
+            if (!mpOpDetector->mlRenderPoseImage.empty()){
                 cv::Mat OpShow = mpOpDetector->mlRenderPoseImage.front();
-                /// OPENCV IMSHOW
-                //cv::imshow("Openpose", OpShow);
-                //cv::waitKey(1);
-                /// OPENGL DISPLAY
+
                 pangolin::GlTexture imageTextureSkeleton(OpShow.cols,OpShow.rows,GL_RGB,false,0,GL_BGR,GL_UNSIGNED_BYTE);
                 imageTextureSkeleton.Upload(OpShow.data,GL_BGR,GL_UNSIGNED_BYTE);
                 d_img_op.Activate();
@@ -390,11 +427,10 @@ void Viewer::Run(){
             }
         }
 
-
-
         ///--------- display skeleton of lower limb from front-view & side-view ---------//
+        /*
         if(mbHumanPose) {
-            if (mpOpDetector->mvJoints3DEKF.size() > 0) {
+            if (!mpOpDetector->mvJoints3DEKF.empty()) {
                 // Skeleton2D image size: im.rows*3
                 // Front view
                 pangolin::GlTexture imageTextureFrontSkel(mWindowSizeY/3, mWindowSizeX, GL_RGB, false, 0, GL_BGR, GL_UNSIGNED_BYTE);
@@ -416,6 +452,7 @@ void Viewer::Run(){
                 imageTextureSideSkel.RenderToViewportFlipY();
             }
         }
+         */
 
         ///--------- Finish update OPENGL GUI in this frame ------------///
         pangolin::FinishFrame();
@@ -488,6 +525,35 @@ void Viewer::Run(){
     }
 
     SetFinish();
+}
+
+void Viewer::LoadMapPoints(const string &filename){
+    ifstream fptCloud;
+    fptCloud.open(filename.c_str());
+    int cnt = 0;
+    while(!fptCloud.eof())
+    {
+        string s;
+        getline(fptCloud,s);
+        if(!s.empty())
+        {
+            stringstream ss;
+            ss << s;
+            int Px, Py, Pz;
+            int Cx, Cy, Cz;
+            cv::Mat ptClouds(6,1,CV_32FC1);
+
+            ss >> Px; ptClouds.at<float>(0,0) = static_cast<float>(Px)/1000.0f;
+            ss >> Py; ptClouds.at<float>(1,0) = static_cast<float>(Py)/1000.0f;
+            ss >> Pz; ptClouds.at<float>(2,0) = static_cast<float>(Pz)/1000.0f;
+            ss >> Cx; ptClouds.at<float>(3,0) = static_cast<float>(Cx)/255.0f;
+            ss >> Cy; ptClouds.at<float>(4,0) = static_cast<float>(Cy)/255.0f;
+            ss >> Cz; ptClouds.at<float>(5,0) = static_cast<float>(Cz)/255.0f;
+            mvPointClouds.push_back(ptClouds);
+            cnt++;
+        }
+    }
+
 }
 
 void Viewer::Draw3DJoints(cv::Mat &Joints3D) {
@@ -571,13 +637,12 @@ void Viewer::Draw3DLowerJoints(cv::Mat &Joints3D, const int mode){
     }
     glEnd();
 
-    glPointSize(50);
+    glPointSize(10);
     glBegin(GL_POINTS);
-    glColor3f(0.2f, 0.2f, 0.f);
+    glColor3f(0.8f, 0.f, 0.f);
     for ( int i=0; i < Joints3D.cols; i++){
-
         // No face
-        if (Joints3D.at<cv::Vec3f>(i)[2] > 7 && (i < 15 || i > 18)){
+        if (Joints3D.at<cv::Vec3f>(i)[2] > 0 && i > 7 && (i < 15 || i > 18)){
             if (mode == 0){
                 glVertex3f(Twc.m[12] + Twc.m[0] * Joints3D.at<cv::Vec3f>(i)[0]
                            + Twc.m[4] * Joints3D.at<cv::Vec3f>(i)[1]
@@ -814,7 +879,7 @@ double Viewer::AngleLink2Link(cv::Vec3f point1, cv::Vec3f point_mid, cv::Vec3f p
         auto innerProduct = l1.t()*l2;
         double num = innerProduct[0];
         double den = cv::norm(l1)*cv::norm(l2);
-
+        
         if (0 == den){
             alpha = 0.0;
         }
@@ -1089,7 +1154,7 @@ void Viewer::CalcHumanJointAngles(cv::Mat Joints3D, struct HumanJointAngles *mJo
         SkelCam.at<cv::Vec3f>(TOE_OUT_R)[2] > 0) {
         cv::Vec3f FootMid = SkelWrd.at<cv::Vec3f>(TOE_OUT_R); FootMid[1] = 0.0;
         cv::Vec3f AnkleR = SkelCam.at<cv::Vec3f>(ANKLE_R); AnkleR[1] = 0.0;
-        mJointAngles->RFTP = AngleLink2Link(FootMid,AnkleR,AnkleR+ForwardDirect);
+        mJointAngles->RFTP = AngleLink2Link(FootMid,AnkleR,AnkleR + ForwardDirect);
         if (mJointAngles->RFTP > 90)
             mJointAngles->RFTP = 180 - mJointAngles->RFTP ;
     }

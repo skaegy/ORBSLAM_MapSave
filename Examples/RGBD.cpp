@@ -105,7 +105,7 @@ int main()
     list<double> lTimestamp;
 
     std::thread LoadRealsense([&]() {
-        while(1){
+        while(true){
             usleep(1000);
             // Read image from realsense
             auto rs_d415 = pipe.wait_for_frames();

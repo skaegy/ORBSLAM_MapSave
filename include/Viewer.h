@@ -78,10 +78,13 @@ public:
 	};
 
 	cv::Vec3f mHIP_C;
+	std::vector<cv::Mat> mvPointClouds;
 
 	cv::Mat mHumanMask;
 
 private:
+	void LoadMapPoints(const string &filename);
+
     void Draw3DJoints(cv::Mat &Joints3D);
 
 	void Draw3DLowerJoints(cv::Mat &Joints3D, const int mode);
